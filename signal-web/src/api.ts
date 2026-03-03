@@ -1,6 +1,7 @@
 import type { Article, Episode, EpisodeRequest, EpisodeScript, VoicesResponse } from './types';
 
-const BASE_URL = '';
+// In production, set VITE_API_URL to your backend URL (e.g., https://api.yourdomain.com)
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
