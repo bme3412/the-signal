@@ -1,0 +1,234 @@
+import { useState, useEffect } from 'react';
+import type { Article, Episode, StyleConfig, SpeakerConfig, AudioProductionConfig, VoiceInfo, EpisodeStatus } from '../types';
+import { defaultStyleConfig, defaultAudioConfig } from '../types';
+import { StylePicker } from './StylePicker';
+import { VoicePicker } from './VoicePicker';
+import { AudioSettings } from './AudioSettings';
+import * as api from '../api';
+
+interface Props {
+  articles: Article[];
+  selectedIds: Set<string>;
+  onEpisodeReady: (episode: Episode) => void;
+}
+
+const statusSteps: { status: EpisodeStatus; label: string }[] = [
+  { status: 'summarizing', label: 'Summarizing' },
+  { status: 'scripting', label: 'Writing Script' },
+  { status: 'synthesizing', label: 'Generating Audio' },
+  { status: 'mixing', label: 'Mixing' },
+  { status: 'ready', label: 'Ready' },
+];
+
+export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) {
+  const [style, setStyle] = useState<StyleConfig>(defaultStyleConfig);
+  const [targetMinutes, setTargetMinutes] = useState(20);
+  const [voiceConfig, setVoiceConfig] = useState<Record<string, SpeakerConfig>>({});
+  const [audioConfig, setAudioConfig] = useState<AudioProductionConfig>(defaultAudioConfig);
+  const [voices, setVoices] = useState<VoiceInfo[]>([]);
+
+  const [generating, setGenerating] = useState(false);
+  const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [showVoices, setShowVoices] = useState(false);
+  const [showAudio, setShowAudio] = useState(false);
+
+  const selectedArticles = articles.filter((a) => selectedIds.has(a.id));
+  const totalWords = selectedArticles.reduce((sum, a) => sum + a.word_count, 0);
+  const estimatedCost = targetMinutes * 0.03;
+
+  // Load voices
+  useEffect(() => {
+    api.getVoices().then((res) => setVoices(res.voices)).catch(console.error);
+  }, []);
+
+  // Poll for episode completion
+  useEffect(() => {
+    if (!currentEpisode || currentEpisode.status === 'ready' || currentEpisode.status === 'failed') {
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const updated = await api.getEpisode(currentEpisode.id);
+        setCurrentEpisode(updated);
+
+        if (updated.status === 'ready') {
+          setGenerating(false);
+          onEpisodeReady(updated);
+        } else if (updated.status === 'failed') {
+          setGenerating(false);
+          setError(updated.error || 'Generation failed');
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [currentEpisode, onEpisodeReady]);
+
+  const handleGenerate = async () => {
+    if (selectedArticles.length === 0) return;
+
+    setGenerating(true);
+    setError(null);
+    setCurrentEpisode(null);
+
+    try {
+      const episode = await api.generateEpisode({
+        article_ids: selectedArticles.map((a) => a.id),
+        style,
+        voice_config: Object.keys(voiceConfig).length > 0 ? voiceConfig : undefined,
+        audio_config: audioConfig,
+        target_minutes: targetMinutes,
+      });
+      setCurrentEpisode(episode);
+    } catch (err) {
+      setGenerating(false);
+      setError(err instanceof Error ? err.message : 'Generation failed');
+    }
+  };
+
+  const getStepIndex = (status: EpisodeStatus) => {
+    const idx = statusSteps.findIndex((s) => s.status === status);
+    return idx === -1 ? 0 : idx;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary card */}
+      <div className="bg-[--color-surface] rounded-xl p-4 border border-[--color-border]">
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-medium">{selectedArticles.length} articles selected</span>
+          <span className="text-sm text-[--color-text-muted] font-mono">{totalWords.toLocaleString()} words</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-[--color-text-secondary]">~{targetMinutes} min episode</span>
+          <span className="text-[--color-text-muted] font-mono">~${estimatedCost.toFixed(2)} estimated</span>
+        </div>
+      </div>
+
+      {/* Style picker */}
+      <StylePicker
+        style={style}
+        onChange={setStyle}
+        targetMinutes={targetMinutes}
+        onTargetMinutesChange={setTargetMinutes}
+      />
+
+      {/* Collapsible voice settings */}
+      <div className="bg-[--color-surface] rounded-xl border border-[--color-border] overflow-hidden">
+        <button
+          onClick={() => setShowVoices(!showVoices)}
+          className="w-full p-4 flex items-center justify-between"
+        >
+          <span className="font-medium">Voices</span>
+          <span className="text-[--color-text-muted]">{showVoices ? '▲' : '▼'}</span>
+        </button>
+        {showVoices && (
+          <div className="px-4 pb-4">
+            <VoicePicker tone={style.tone} voices={voices} voiceConfig={voiceConfig} onChange={setVoiceConfig} />
+          </div>
+        )}
+      </div>
+
+      {/* Collapsible audio settings */}
+      <div className="bg-[--color-surface] rounded-xl border border-[--color-border] overflow-hidden">
+        <button
+          onClick={() => setShowAudio(!showAudio)}
+          className="w-full p-4 flex items-center justify-between"
+        >
+          <span className="font-medium">Audio Production</span>
+          <span className="text-[--color-text-muted]">{showAudio ? '▲' : '▼'}</span>
+        </button>
+        {showAudio && (
+          <div className="px-4 pb-4">
+            <AudioSettings config={audioConfig} onChange={setAudioConfig} />
+          </div>
+        )}
+      </div>
+
+      {/* Progress card */}
+      {currentEpisode && generating && (
+        <div className="bg-[--color-surface] rounded-xl p-4 border border-[--color-border]">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-medium">Pipeline</span>
+            <div className="w-4 h-4 border-2 border-[--color-accent-blue] border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div className="space-y-2">
+            {statusSteps.map((step, i) => {
+              const currentIdx = getStepIndex(currentEpisode.status);
+              const isComplete = i < currentIdx;
+              const isCurrent = i === currentIdx;
+
+              return (
+                <div key={step.status} className="flex items-center gap-3">
+                  <div
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                      isComplete
+                        ? 'bg-green-500 text-white'
+                        : isCurrent
+                        ? 'bg-[--color-accent-blue] text-white'
+                        : 'bg-[--color-border] text-[--color-text-muted]'
+                    }`}
+                  >
+                    {isComplete ? '✓' : i + 1}
+                  </div>
+                  <span
+                    className={
+                      isCurrent
+                        ? 'text-[--color-text-primary]'
+                        : isComplete
+                        ? 'text-[--color-text-secondary]'
+                        : 'text-[--color-text-muted]'
+                    }
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-red-400 font-medium mb-1">
+            <span>⚠</span>
+            <span>Generation Failed</span>
+          </div>
+          <p className="text-sm text-red-300">{error}</p>
+          <button
+            onClick={handleGenerate}
+            className="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Generate button */}
+      <button
+        onClick={handleGenerate}
+        disabled={selectedArticles.length === 0 || generating}
+        className="w-full py-4 bg-[--color-accent-blue] text-white rounded-xl font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      >
+        {generating ? (
+          <>
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span>Generating...</span>
+          </>
+        ) : (
+          <>
+            <span>✨</span>
+            <span>Generate Episode</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}

@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+anthropic
+httpx
+readability-lxml
+beautifulsoup4
+lxml
+pydub
+aiofiles
+structlog
