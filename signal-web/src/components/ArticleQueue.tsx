@@ -16,6 +16,19 @@ interface Props {
 export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh, onFocusSuggested }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const toggleCollapsed = (name: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
   const [addMode, setAddMode] = useState<'url' | 'manual'>('url');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -115,6 +128,8 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
           {groups.map(([name, groupArticles]) => {
             const allSelected = groupArticles.every((a) => selectedIds.has(a.id));
             const someSelected = groupArticles.some((a) => selectedIds.has(a.id));
+            const isCollapsed = collapsedGroups.has(name);
+            const selectedCount = groupArticles.filter((a) => selectedIds.has(a.id)).length;
             return (
               <section key={name}>
                 <div className="flex items-center gap-3 mb-2 px-1">
@@ -128,11 +143,21 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
                     title={allSelected ? 'Deselect all' : 'Select all in this topic'}
                     className="w-4 h-4 accent-(--color-accent)"
                   />
-                  <h3 className="font-display text-lg font-semibold italic">{name}</h3>
-                  <span className="font-mono text-[11px] text-(--color-text-muted)">
-                    {groupArticles.length} article{groupArticles.length === 1 ? '' : 's'}
-                  </span>
+                  <button
+                    onClick={() => toggleCollapsed(name)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  >
+                    <h3 className="font-display text-lg font-semibold italic truncate">{name}</h3>
+                    <span className="font-mono text-[11px] text-(--color-text-muted) shrink-0">
+                      {groupArticles.length} article{groupArticles.length === 1 ? '' : 's'}
+                      {isCollapsed && selectedCount > 0 && ` · ${selectedCount} selected`}
+                    </span>
+                    <span className="ml-auto text-(--color-text-muted) shrink-0">
+                      {isCollapsed ? '▸' : '▾'}
+                    </span>
+                  </button>
                 </div>
+                {isCollapsed ? null : (
                 <div className="space-y-2">
                   {groupArticles.map((article) => (
                     <div
@@ -173,6 +198,7 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
                     </div>
                   ))}
                 </div>
+                )}
               </section>
             );
           })}
