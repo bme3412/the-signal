@@ -16,7 +16,7 @@ from models import (
     SpeakerConfig,
     StyleConfig,
 )
-from services import article_svc, audio_svc, script_svc, tts_svc
+from services import article_svc, audio_svc, kb_svc, script_svc, tts_svc
 from store import Store
 
 log = structlog.get_logger()
@@ -41,37 +41,46 @@ async def run_pipeline(
     pipeline_start = time.time()
 
     try:
-        # 1. Summarize
+        # 1. Enrich (summary + topics + entities) any articles not yet processed
         store.update_status(episode_id, EpisodeStatus.summarizing)
         t0 = time.time()
         for art in articles:
             if not art.summary:
-                summary = await article_svc.summarize_article(art.text, settings)
-                art.summary = summary
-                store.update_article(art.id, summary=summary)
-                log.info("pipeline.summarized", article_id=art.id)
+                enriched = await article_svc.enrich_article(art.text, settings)
+                art.summary = enriched["summary"]
+                art.topics = enriched["topics"]
+                art.entities = enriched["entities"]
+                store.update_article(art.id, **enriched)
+                log.info("pipeline.enriched", article_id=art.id)
         metrics.summarize_time_ms = _ms_since(t0)
 
-        # 2. Script
+        # 2. Script, with knowledge-base background for depth and continuity
         store.update_status(episode_id, EpisodeStatus.scripting)
         t0 = time.time()
+        kb_context = kb_svc.gather_context(articles, store)
         script_text, token_info = await script_svc.generate_script(
-            articles, style, target_minutes, settings
+            articles, style, target_minutes, settings, kb_context=kb_context
         )
-        segments = script_svc.parse_script(script_text)
+        segments, chapters = script_svc.parse_script(script_text)
         metrics.script_time_ms = _ms_since(t0)
         metrics.script_tokens_in = token_info["input_tokens"]
         metrics.script_tokens_out = token_info["output_tokens"]
 
-        word_count = len(script_text.split())
+        word_count = sum(len(s.text.split()) for s in segments)
         episode_script = EpisodeScript(
             raw_text=script_text,
             segments=segments,
+            chapters=chapters,
             word_count=word_count,
             estimated_minutes=round(word_count / 150, 1),
         )
         store.update_episode(episode_id, script=episode_script, metrics=metrics)
-        log.info("pipeline.scripted", words=word_count, segments=len(segments))
+        log.info(
+            "pipeline.scripted",
+            words=word_count,
+            segments=len(segments),
+            chapters=len(chapters),
+        )
 
         # 3. TTS
         store.update_status(episode_id, EpisodeStatus.synthesizing)
@@ -82,13 +91,24 @@ async def run_pipeline(
         metrics.tts_time_ms = _ms_since(t0)
         metrics.tts_characters = sum(s.char_count for s in segments)
 
-        # 4. Mix
+        # 4. Mix — full episode plus one file per chapter for adaptive playback
         store.update_status(episode_id, EpisodeStatus.mixing)
         t0 = time.time()
-        final_audio = audio_svc.concatenate_segments(audio_chunks, audio_config)
+        mix = audio_svc.build_episode_audio(
+            audio_chunks, [c.segment_indices for c in chapters], audio_config
+        )
         metrics.mix_time_ms = _ms_since(t0)
 
         # 5. Save & finish
+        for seg, dur in zip(segments, mix["segment_durations"]):
+            seg.duration_seconds = dur
+        for i, (chapter, built) in enumerate(zip(chapters, mix["chapters"])):
+            chapter.duration_seconds = built["duration_seconds"]
+            chapter.start_seconds = built["start_seconds"]
+            chapter.audio_url = audio_svc.save_chapter_audio(
+                episode_id, i, built["audio"], settings.storage_path
+            )
+        final_audio = mix["episode"]
         audio_url = audio_svc.save_audio(episode_id, final_audio, settings.storage_path)
         duration = audio_svc.get_duration(final_audio)
 
@@ -103,6 +123,7 @@ async def run_pipeline(
         episode = store.update_episode(
             episode_id,
             status=EpisodeStatus.ready,
+            script=episode_script,  # now carries measured durations + chapter URLs
             audio_url=audio_url,
             audio_duration_seconds=round(duration, 1),
             metrics=metrics,

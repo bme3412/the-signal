@@ -9,5 +9,6 @@ readability-lxml
 beautifulsoup4
 lxml
 pydub
+audioop-lts; python_version >= "3.13"
 aiofiles
 structlog

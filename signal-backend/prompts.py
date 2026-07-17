@@ -115,6 +115,18 @@ def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
         "3. Segments — the substance, one per article or theme",
         "4. Closer — wrap with the chosen closer style",
         "",
+        "CHAPTERS:",
+        "Divide the script into chapters. Before each chapter's dialogue, output a "
+        "marker on its own line:",
+        "### CHAPTER: <short title> [intro|core|optional|closer]",
+        "- First chapter: cold open + framing, marked [intro]",
+        "- One chapter per article or theme, marked [core]",
+        "- 1-2 bonus chapters marked [optional]: a self-contained tangent, deeper "
+        "background, or related angle. Place them between core chapters, never first "
+        "or last. The episode must flow perfectly if they are skipped — later "
+        "chapters must NEVER reference optional content.",
+        "- Final chapter: the closer, marked [closer]",
+        "",
         f"TARGET: ~{target_words} words ({target_words // 150} minutes at speaking pace).",
         "",
         "RULES:",
@@ -123,16 +135,21 @@ def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
         "- Transitions should be organic, not mechanical",
         "- End forward-looking — what to watch for next",
         "- Do NOT include stage directions, sound effects, or metadata",
+        "- If KNOWLEDGE BASE CONTEXT is provided, use it for continuity and depth: "
+        "reference prior coverage naturally ('as we covered recently...') and draw on "
+        "background articles for context — but the episode is about the NEW articles",
         "- Output ONLY the script text with speaker tags",
     ]
 
     return "\n".join(sections)
 
 
-def build_summary_prompt() -> str:
+def build_enrichment_prompt() -> str:
     return (
-        "Summarize the following article in 150-250 words. "
-        "Preserve specific numbers, quotes, and data points. "
-        "Focus on: key facts, core thesis, and implications. "
-        "Write in plain prose, no bullet points."
+        "Analyze the following article and return STRICT JSON with exactly these keys:\n"
+        '- "summary": a 150-250 word plain-prose summary preserving specific numbers, '
+        "quotes, and data points, covering key facts, core thesis, and implications\n"
+        '- "topics": 3-6 short lowercase topic tags (e.g. "semiconductors", "ai chips")\n'
+        '- "entities": companies, people, and products mentioned, up to 10\n'
+        "Return ONLY the JSON object, no markdown fences, no other text."
     )

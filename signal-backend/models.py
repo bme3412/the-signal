@@ -122,6 +122,8 @@ class Article(BaseModel):
     url: str | None = None
     text: str
     summary: str | None = None
+    topics: list[str] = Field(default_factory=list)
+    entities: list[str] = Field(default_factory=list)
     word_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -135,15 +137,36 @@ class ArticleCreate(BaseModel):
 
 # --------------- Script ---------------
 
+class ChapterRole(str, Enum):
+    intro = "intro"
+    core = "core"
+    optional = "optional"
+    closer = "closer"
+
+
 class ScriptSegment(BaseModel):
     speaker: str
     text: str
     char_count: int = 0
+    duration_seconds: float = 0.0
+
+
+class Chapter(BaseModel):
+    """A coherent block of the episode — the unit an adaptive player can
+    skip (role=optional) or must keep (intro/core/closer)."""
+
+    title: str
+    role: ChapterRole = ChapterRole.core
+    segment_indices: list[int] = Field(default_factory=list)
+    audio_url: str | None = None
+    duration_seconds: float = 0.0
+    start_seconds: float = 0.0
 
 
 class EpisodeScript(BaseModel):
     raw_text: str
     segments: list[ScriptSegment]
+    chapters: list[Chapter] = Field(default_factory=list)
     word_count: int = 0
     estimated_minutes: float = 0.0
 
@@ -176,6 +199,27 @@ class Episode(BaseModel):
     error: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
+
+
+class ManifestChapter(BaseModel):
+    index: int
+    title: str
+    role: ChapterRole
+    audio_url: str | None
+    duration_seconds: float
+    start_seconds: float
+    segments: list[ScriptSegment]
+
+
+class EpisodeManifest(BaseModel):
+    """Per-chapter audio map for adaptive playback: play chapters in order,
+    drop or keep 'optional' ones to fit the listener's remaining time, always
+    end on the 'closer'."""
+
+    episode_id: str
+    status: EpisodeStatus
+    total_duration_seconds: float
+    chapters: list[ManifestChapter]
 
 
 class EpisodeRequest(BaseModel):

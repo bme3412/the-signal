@@ -63,6 +63,40 @@ Open `TheSignal/` in Xcode and run on simulator or device.
 
 ## Features
 
+### Knowledge Base
+Articles persist in SQLite (`signal-backend/data/signal.db`) and are enriched on
+ingest with a summary, topic tags, and entities. Episode scripts automatically pull
+in related background articles and reference what recent episodes covered, so the
+show builds continuity over time.
+
+- `GET /api/articles/search?q=...` — full-text search across the knowledge base
+- `GET /api/articles/{id}/related` — articles related by topic/entity overlap
+
+### Chapter Manifest (adaptive playback)
+Episodes are scripted in chapters (`intro` / `core` / `optional` / `closer`) and
+mixed into one audio file per chapter alongside the full episode MP3. Optional
+chapters are self-contained tangents a player can skip, so playback can be fit
+to a walk or commute: play chapters in order, drop or keep optionals to match
+the remaining time, always end on the closer.
+
+- `GET /api/episodes/{id}/manifest` — chapters with roles, measured durations,
+  start offsets into the full episode, and per-chapter audio URLs
+
+### Walk Mode (iOS)
+Tap **Walk** in the player, tell it how long you have, and the episode is fit
+to your time: required chapters always play, bonus chapters are kept while
+they fit, and playback rate is nudged (0.95–1.10x) so the closer lands as you
+get home. The plan re-evaluates at every chapter boundary against the
+wall-clock deadline — pause mid-walk and it adapts by dropping a bonus
+chapter or speeding up slightly.
+
+**Destination mode**: instead of a timer, search for where you're walking to.
+The walking ETA (MapKit) sets the episode length, and live location updates
+slide the deadline while you walk — walk slower and a bonus chapter comes
+back, faster and playback tightens so the closer lands as you arrive.
+Requires `NSLocationWhenInUseUsageDescription` in the app target's Info
+settings.
+
 ### Customizable Style
 8 independent dimensions to shape your podcast:
 

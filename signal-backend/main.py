@@ -25,7 +25,7 @@ log = structlog.get_logger()
 async def lifespan(app: FastAPI):
     settings = get_settings()
     os.makedirs(os.path.join(settings.storage_path, "episodes"), exist_ok=True)
-    app.state.store = Store()
+    app.state.store = Store(db_path=os.path.join(settings.storage_path, "signal.db"))
     log.info("startup", storage_path=settings.storage_path)
     yield
     log.info("shutdown")

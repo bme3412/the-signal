@@ -6,7 +6,14 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from config import get_settings
-from models import Episode, EpisodeRequest, EpisodeScript, EpisodeStatus
+from models import (
+    Episode,
+    EpisodeManifest,
+    EpisodeRequest,
+    EpisodeScript,
+    EpisodeStatus,
+    ManifestChapter,
+)
 from services.pipeline import run_pipeline
 from services.tts_svc import get_voices_info
 
@@ -83,6 +90,36 @@ async def get_episode_script(episode_id: str, request: Request):
     if not episode.script:
         raise HTTPException(404, "Script not yet available")
     return episode.script
+
+
+@router.get("/episodes/{episode_id}/manifest", response_model=EpisodeManifest)
+async def get_episode_manifest(episode_id: str, request: Request):
+    """Per-chapter audio map for adaptive playback."""
+    episode = _get_store(request).get_episode(episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    script = episode.script
+    if episode.status != EpisodeStatus.ready or not script or not script.chapters:
+        raise HTTPException(404, "Manifest not yet available")
+
+    chapters = [
+        ManifestChapter(
+            index=i,
+            title=ch.title,
+            role=ch.role,
+            audio_url=ch.audio_url,
+            duration_seconds=ch.duration_seconds,
+            start_seconds=ch.start_seconds,
+            segments=[script.segments[j] for j in ch.segment_indices],
+        )
+        for i, ch in enumerate(script.chapters)
+    ]
+    return EpisodeManifest(
+        episode_id=episode.id,
+        status=episode.status,
+        total_duration_seconds=episode.audio_duration_seconds or 0.0,
+        chapters=chapters,
+    )
 
 
 @router.get("/episodes/{episode_id}/audio")

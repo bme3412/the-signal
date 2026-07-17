@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import structlog
 from bs4 import BeautifulSoup
@@ -7,7 +9,7 @@ from readability import Document
 
 from anthropic import AsyncAnthropic
 from config import Settings
-from prompts import build_summary_prompt
+from prompts import build_enrichment_prompt
 
 log = structlog.get_logger()
 
@@ -37,12 +39,39 @@ async def fetch_and_extract(url: str) -> dict:
     return {"title": title, "text": text, "source": source}
 
 
-async def summarize_article(text: str, settings: Settings) -> str:
+async def enrich_article(text: str, settings: Settings) -> dict:
+    """Summarize and tag an article for the knowledge base.
+
+    Returns {"summary": str, "topics": list[str], "entities": list[str]}.
+    """
     client = AsyncAnthropic(api_key=settings.anthropic_api_key)
     resp = await client.messages.create(
         model=settings.claude_model,
-        max_tokens=512,
-        system=build_summary_prompt(),
+        max_tokens=1024,
+        system=build_enrichment_prompt(),
         messages=[{"role": "user", "content": text[:8000]}],
     )
-    return resp.content[0].text
+    raw = resp.content[0].text
+    enriched = _parse_enrichment(raw)
+    log.info(
+        "article.enriched",
+        topics=enriched["topics"],
+        entities=len(enriched["entities"]),
+    )
+    return enriched
+
+
+def _parse_enrichment(raw: str) -> dict:
+    start, end = raw.find("{"), raw.rfind("}")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(raw[start : end + 1])
+            return {
+                "summary": str(data.get("summary", "")).strip() or raw,
+                "topics": [str(t).strip().lower() for t in data.get("topics", []) if str(t).strip()],
+                "entities": [str(e).strip() for e in data.get("entities", []) if str(e).strip()],
+            }
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    log.warning("article.enrichment_parse_failed")
+    return {"summary": raw, "topics": [], "entities": []}
