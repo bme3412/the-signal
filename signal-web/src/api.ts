@@ -1,4 +1,4 @@
-import type { Article, DiscoverResult, Episode, EpisodeRequest, EpisodeScript, VoicesResponse } from './types';
+import type { Article, DiscoverResult, Episode, EpisodeAngle, EpisodeRequest, EpisodeScript, VoicesResponse } from './types';
 
 // In production, set VITE_API_URL to your backend URL (e.g., https://api.yourdomain.com)
 // and VITE_API_TOKEN to the backend's SIGNAL_API_TOKEN.
@@ -55,6 +55,13 @@ export async function submitArticleManual(title: string, text: string, source = 
 
 export async function deleteArticle(id: string): Promise<void> {
   await request(`/api/articles/${id}`, { method: 'DELETE' });
+}
+
+export async function suggestAngles(topic: string, results: DiscoverResult[]): Promise<EpisodeAngle[]> {
+  return request('/api/discover/angles', {
+    method: 'POST',
+    body: JSON.stringify({ topic, results }),
+  });
 }
 
 export async function discoverArticles(

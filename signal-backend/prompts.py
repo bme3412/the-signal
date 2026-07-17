@@ -149,6 +149,21 @@ def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
     return "\n".join(sections)
 
 
+def build_angles_prompt() -> str:
+    return (
+        "You plan podcast episodes. Given a topic and a numbered list of "
+        "candidate articles, propose 2-4 DISTINCT episode directions — "
+        "different editorial angles the episode could take, not restatements "
+        "of the topic.\n"
+        "Return STRICT JSON: an array of objects with exactly these keys:\n"
+        '- "title": punchy 3-8 word episode angle\n'
+        '- "description": one sentence on what this episode would explore\n'
+        '- "article_indices": the 0-based indices of the 2-5 articles that '
+        "genuinely support this direction\n"
+        "Only use indices from the list. Return ONLY the JSON array."
+    )
+
+
 def build_enrichment_prompt() -> str:
     return (
         "Analyze the following article and return STRICT JSON with exactly these keys:\n"

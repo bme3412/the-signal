@@ -9,7 +9,7 @@ from readability import Document
 
 from anthropic import AsyncAnthropic
 from config import Settings
-from prompts import build_enrichment_prompt
+from prompts import build_angles_prompt, build_enrichment_prompt
 
 log = structlog.get_logger()
 
@@ -99,12 +99,59 @@ async def search_topic(
         results.append({
             "title": (item.get("title") or url).strip(),
             "url": url,
-            "description": (item.get("description") or "").strip(),
+            "description": (item.get("description") or item.get("snippet") or "").strip(),
             "source": httpx.URL(url).host or "",
         })
 
     log.info("article.topic_search", query=query, results=len(results))
     return results[:limit]
+
+
+async def suggest_angles(
+    topic: str, results: list[dict], settings: Settings
+) -> list[dict]:
+    """Propose 2-4 episode directions from discovery candidates.
+
+    Returns [{"title", "description", "article_indices"}]; empty list on any
+    model or parse failure — angles are an enhancement, never a blocker.
+    """
+    lines = [
+        f"{i}. {r.get('title', '')} — {r.get('description') or 'no description'} "
+        f"({r.get('source', '')})"
+        for i, r in enumerate(results)
+    ]
+    user_msg = f"TOPIC: {topic}\n\nCANDIDATE ARTICLES:\n" + "\n".join(lines)
+
+    try:
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        resp = await client.messages.create(
+            model=settings.claude_model,
+            max_tokens=800,
+            system=build_angles_prompt(),
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        raw = resp.content[0].text
+        start, end = raw.find("["), raw.rfind("]")
+        data = json.loads(raw[start : end + 1])
+    except Exception as exc:
+        log.warning("article.angles_failed", topic=topic, error=str(exc))
+        return []
+
+    angles = []
+    for item in data if isinstance(data, list) else []:
+        indices = [
+            i for i in item.get("article_indices", [])
+            if isinstance(i, int) and 0 <= i < len(results)
+        ]
+        title = str(item.get("title", "")).strip()
+        if title and indices:
+            angles.append({
+                "title": title,
+                "description": str(item.get("description", "")).strip(),
+                "article_indices": indices,
+            })
+    log.info("article.angles", topic=topic, count=len(angles))
+    return angles[:4]
 
 
 async def _extract_via_readability(url: str) -> dict:

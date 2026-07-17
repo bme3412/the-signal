@@ -4,7 +4,14 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from config import Settings, get_settings
-from models import Article, ArticleCreate, DiscoverRequest, DiscoverResult
+from models import (
+    AnglesRequest,
+    Article,
+    ArticleCreate,
+    DiscoverRequest,
+    DiscoverResult,
+    EpisodeAngle,
+)
 from services import article_svc, kb_svc
 from store import Store
 
@@ -95,6 +102,18 @@ async def discover_articles(body: DiscoverRequest, request: Request):
         DiscoverResult(**r, in_queue=r["url"] in queued_urls)
         for r in results
     ]
+
+
+@router.post("/discover/angles", response_model=list[EpisodeAngle])
+async def discover_angles(body: AnglesRequest):
+    """Suggest episode directions for a set of discovery results."""
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        raise HTTPException(400, "Angle suggestions require ANTHROPIC_API_KEY")
+    angles = await article_svc.suggest_angles(
+        body.topic, [r.model_dump() for r in body.results], settings
+    )
+    return [EpisodeAngle(**a) for a in angles]
 
 
 @router.get("/articles", response_model=list[Article])

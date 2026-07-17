@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DiscoverResult } from '../types';
+import type { DiscoverResult, EpisodeAngle } from '../types';
 import * as api from '../api';
 
 interface Props {
@@ -26,6 +26,8 @@ export function DiscoverModal({ onClose, onAdded }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addStates, setAddStates] = useState<Record<string, AddState>>({});
   const [addingAll, setAddingAll] = useState(false);
+  const [angles, setAngles] = useState<EpisodeAngle[] | null>(null);
+  const [anglesLoading, setAnglesLoading] = useState(false);
 
   const search = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,14 +36,39 @@ export function DiscoverModal({ onClose, onAdded }: Props) {
     setResults(null);
     setSelected(new Set());
     setAddStates({});
+    setAngles(null);
     setSearchedTopic(topic.trim());
     try {
-      setResults(await api.discoverArticles(topic, recency));
+      const found = await api.discoverArticles(topic, recency);
+      setResults(found);
+      if (found.length >= 2) {
+        setAnglesLoading(true);
+        api
+          .suggestAngles(topic, found)
+          .then(setAngles)
+          .catch(() => setAngles([]))
+          .finally(() => setAnglesLoading(false));
+      }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Search failed');
     } finally {
       setSearching(false);
     }
+  };
+
+  const angleUrls = (angle: EpisodeAngle) =>
+    angle.article_indices
+      .map((i) => results?.[i])
+      .filter((r): r is DiscoverResult => !!r && !r.in_queue && addStates[r.url] !== 'added')
+      .map((r) => r.url);
+
+  const applyAngle = (angle: EpisodeAngle) => {
+    setSelected(new Set(angleUrls(angle)));
+  };
+
+  const isAngleActive = (angle: EpisodeAngle) => {
+    const urls = angleUrls(angle);
+    return urls.length > 0 && selected.size === urls.length && urls.every((u) => selected.has(u));
   };
 
   const toggle = (url: string) => {
@@ -121,6 +148,48 @@ export function DiscoverModal({ onClose, onAdded }: Props) {
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto px-6 space-y-2">
+          {/* Suggested episode directions */}
+          {anglesLoading && (
+            <p className="font-mono text-[11px] uppercase tracking-wider text-(--color-text-muted) py-1">
+              Sketching episode directions…
+            </p>
+          )}
+          {angles && angles.length > 0 && (
+            <div className="pb-2">
+              <p className="font-mono text-[11px] uppercase tracking-wider text-(--color-text-muted) mb-2">
+                Suggested directions — tap one to select its articles
+              </p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {angles.map((angle, i) => {
+                  const active = isAngleActive(angle);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => applyAngle(angle)}
+                      className={`text-left p-3 rounded-xl border transition ${
+                        active
+                          ? 'border-(--color-accent) bg-(--color-accent)/10'
+                          : 'border-(--color-border) bg-(--color-background) hover:border-(--color-accent)'
+                      }`}
+                    >
+                      <div className="font-display font-semibold text-sm leading-snug">
+                        {angle.title}
+                      </div>
+                      {angle.description && (
+                        <div className="text-xs text-(--color-text-secondary) mt-1 leading-snug">
+                          {angle.description}
+                        </div>
+                      )}
+                      <div className="font-mono text-[10px] text-(--color-text-muted) mt-1.5">
+                        {angle.article_indices.length} articles
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {results && results.length === 0 && (
             <p className="text-(--color-text-muted) text-sm py-6 text-center">
               Nothing found — try a broader topic or a longer time window.

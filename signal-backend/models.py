@@ -151,6 +151,17 @@ class DiscoverResult(BaseModel):
     in_queue: bool = False
 
 
+class AnglesRequest(BaseModel):
+    topic: str = Field(..., min_length=2)
+    results: list[DiscoverResult] = Field(..., min_length=2, max_length=20)
+
+
+class EpisodeAngle(BaseModel):
+    title: str
+    description: str = ""
+    article_indices: list[int]
+
+
 # --------------- Script ---------------
 
 class ChapterRole(str, Enum):

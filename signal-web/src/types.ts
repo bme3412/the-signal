@@ -99,6 +99,12 @@ export interface DiscoverResult {
   in_queue: boolean;
 }
 
+export interface EpisodeAngle {
+  title: string;
+  description: string;
+  article_indices: number[];
+}
+
 // Episode
 export type EpisodeStatus = 'queued' | 'summarizing' | 'scripting' | 'synthesizing' | 'mixing' | 'ready' | 'failed';
 
