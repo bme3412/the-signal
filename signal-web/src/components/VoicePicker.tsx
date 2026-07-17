@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Tone, VoiceInfo, SpeakerConfig, VoiceSettings } from '../types';
 
 interface Props {
@@ -16,28 +15,93 @@ const defaultVoiceSettings: VoiceSettings = {
   use_speaker_boost: true,
 };
 
+/** Friendly delivery presets — map to the technical ElevenLabs knobs. */
+const DELIVERY_PRESETS: {
+  id: string;
+  label: string;
+  hint: string;
+  settings: Pick<VoiceSettings, 'stability' | 'style' | 'similarity_boost'>;
+}[] = [
+  {
+    id: 'natural',
+    label: 'Natural',
+    hint: 'Balanced',
+    settings: { stability: 0.4, style: 0.5, similarity_boost: 0.75 },
+  },
+  {
+    id: 'expressive',
+    label: 'Expressive',
+    hint: 'More range',
+    settings: { stability: 0.25, style: 0.7, similarity_boost: 0.7 },
+  },
+  {
+    id: 'steady',
+    label: 'Steady',
+    hint: 'Even tone',
+    settings: { stability: 0.65, style: 0.3, similarity_boost: 0.8 },
+  },
+];
+
+const PACE_PRESETS: { id: string; label: string; speed: number }[] = [
+  { id: 'slower', label: 'Slower', speed: 0.85 },
+  { id: 'normal', label: 'Normal', speed: 1.0 },
+  { id: 'faster', label: 'Faster', speed: 1.1 },
+];
+
+const SPEAKER_META: Record<string, { role: string; color: string }> = {
+  ALEX: { role: 'Optimist — finds the upside', color: '#0a84ff' },
+  JAMIE: { role: 'Skeptic — needs the number', color: '#ff9500' },
+  ANCHOR: { role: 'Hosts the frame', color: '#0a84ff' },
+  ANALYST: { role: 'Brings the receipts', color: '#2d6a5f' },
+  BULL: { role: 'Bull case', color: '#34c759' },
+  BEAR: { role: 'Bear case', color: '#ff3b30' },
+  LEAD: { role: 'Walks the architecture', color: '#5b4b8a' },
+  PEER: { role: 'Pressure-tests the design', color: '#c2452d' },
+  HOST: { role: 'Narrator', color: '#0a84ff' },
+};
+
 function getSpeakersForTone(tone: Tone): string[] {
   switch (tone) {
     case 'casual':
       return ['ALEX', 'JAMIE'];
     case 'polished':
-    case 'technical':
-      return ['HOST'];
+      return ['ANCHOR', 'ANALYST'];
     case 'debate':
       return ['BULL', 'BEAR'];
+    case 'technical':
+      return ['LEAD', 'PEER'];
   }
 }
 
-const speakerColors: Record<string, string> = {
-  ALEX: '#0a84ff',
-  JAMIE: '#ff9500',
-  HOST: '#0a84ff',
-  BULL: '#34c759',
-  BEAR: '#ff3b30',
-};
+function nearestDelivery(settings: VoiceSettings): string {
+  let best = DELIVERY_PRESETS[0].id;
+  let bestDist = Infinity;
+  for (const p of DELIVERY_PRESETS) {
+    const dist =
+      Math.abs(settings.stability - p.settings.stability) +
+      Math.abs(settings.style - p.settings.style);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p.id;
+    }
+  }
+  return best;
+}
+
+function nearestPace(speed: number): string {
+  let best = PACE_PRESETS[1].id;
+  let bestDist = Infinity;
+  for (const p of PACE_PRESETS) {
+    const dist = Math.abs(speed - p.speed);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p.id;
+    }
+  }
+  return best;
+}
 
 export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
-  const [expandedSpeaker, setExpandedSpeaker] = useState<string | null>(null);
   const speakers = getSpeakersForTone(tone);
 
   const getConfig = (speaker: string): SpeakerConfig => {
@@ -52,146 +116,141 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
     });
   };
 
-  const updateSettings = (speaker: string, key: keyof VoiceSettings, value: number | boolean) => {
+  const applyDelivery = (speaker: string, presetId: string) => {
+    const preset = DELIVERY_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
     const current = getConfig(speaker);
     onChange({
       ...voiceConfig,
       [speaker]: {
         ...current,
-        settings: { ...current.settings, [key]: value },
+        settings: { ...current.settings, ...preset.settings },
+      },
+    });
+  };
+
+  const applyPace = (speaker: string, speed: number) => {
+    const current = getConfig(speaker);
+    onChange({
+      ...voiceConfig,
+      [speaker]: {
+        ...current,
+        settings: { ...current.settings, speed },
       },
     });
   };
 
   if (voices.length === 0) {
     return (
-      <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border)">
-        <div className="flex items-center gap-2 text-(--color-text-muted)">
+      <div className="space-y-2">
+        <h3 className="font-display text-lg font-semibold">Voices</h3>
+        <div className="flex items-center gap-2 text-(--color-text-muted) text-sm py-2">
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          <span>Loading voices...</span>
+          Loading voices…
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border) space-y-4">
-      <h4 className="font-medium">Voice Selection</h4>
+    <div className="space-y-4">
+      <div>
+        <h3 className="font-display text-lg font-semibold">Voices</h3>
+        <p className="text-sm text-(--color-text-secondary) mt-0.5">
+          One voice per host. Delivery and pace stay simple.
+        </p>
+      </div>
 
-      {speakers.map((speaker) => {
-        const config = getConfig(speaker);
-        const isExpanded = expandedSpeaker === speaker;
-        const color = speakerColors[speaker] || '#6b7280';
+      <div className="space-y-3">
+        {speakers.map((speaker) => {
+          const config = getConfig(speaker);
+          const meta = SPEAKER_META[speaker] || { role: 'Host', color: '#6b7280' };
+          const delivery = nearestDelivery(config.settings);
+          const pace = nearestPace(config.settings.speed ?? 1);
 
-        return (
-          <div key={speaker} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold" style={{ color }}>
-                {speaker}
-              </span>
-              <button
-                onClick={() => setExpandedSpeaker(isExpanded ? null : speaker)}
-                className={`text-xs px-2 py-1 rounded transition ${
-                  isExpanded
-                    ? 'bg-(--color-accent)/20 text-(--color-accent)'
-                    : 'text-(--color-text-muted) hover:text-(--color-text-secondary)'
-                }`}
-              >
-                ⚙ Settings
-              </button>
-            </div>
+          return (
+            <div
+              key={speaker}
+              className="rounded-xl border border-(--color-border) bg-(--color-background) p-4 space-y-3"
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm font-bold tracking-wide" style={{ color: meta.color }}>
+                  {speaker}
+                </span>
+                <span className="text-xs text-(--color-text-muted)">{meta.role}</span>
+              </div>
 
-            {/* Voice selection */}
-            <div className="flex flex-wrap gap-2">
-              {voices.map((voice) => {
-                const isSelected = config.voice_id === voice.id;
-                return (
-                  <button
-                    key={voice.id}
-                    onClick={() => updateConfig(speaker, { voice_id: voice.id })}
-                    className={`px-3 py-1.5 rounded-full text-sm transition border capitalize ${
-                      isSelected
-                        ? 'bg-(--color-accent)/20 border-(--color-accent) text-(--color-accent)'
-                        : 'bg-transparent border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted)'
-                    }`}
-                  >
-                    {voice.name}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Voice settings */}
-            {isExpanded && (
-              <div className="mt-3 pt-3 border-t border-(--color-border) space-y-3">
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-(--color-text-muted)">Stability</span>
-                    <span className="font-mono">{Math.round(config.settings.stability * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={config.settings.stability}
-                    onChange={(e) => updateSettings(speaker, 'stability', Number(e.target.value))}
-                  />
-                  <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = more consistent</p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-(--color-text-muted)">Clarity</span>
-                    <span className="font-mono">{Math.round(config.settings.similarity_boost * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={config.settings.similarity_boost}
-                    onChange={(e) => updateSettings(speaker, 'similarity_boost', Number(e.target.value))}
-                  />
-                  <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = clearer voice</p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-(--color-text-muted)">Style</span>
-                    <span className="font-mono">{Math.round(config.settings.style * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={config.settings.style}
-                    onChange={(e) => updateSettings(speaker, 'style', Number(e.target.value))}
-                  />
-                  <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = more expressive</p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-(--color-text-muted)">Pace</span>
-                    <span className="font-mono">{(config.settings.speed ?? 1).toFixed(2)}x</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0.7}
-                    max={1.2}
-                    step={0.05}
-                    value={config.settings.speed ?? 1}
-                    onChange={(e) => updateSettings(speaker, 'speed', Number(e.target.value))}
-                  />
-                  <p className="text-xs text-(--color-text-muted) mt-0.5">Conversational is ~1.0x</p>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-(--color-text-muted) mb-1.5">
+                  Voice
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {voices.map((voice) => {
+                    const isSelected = config.voice_id === voice.id;
+                    return (
+                      <button
+                        key={voice.id}
+                        onClick={() => updateConfig(speaker, { voice_id: voice.id })}
+                        className={`px-3 py-1.5 rounded-full text-sm transition border capitalize ${
+                          isSelected
+                            ? 'bg-(--color-accent)/15 border-(--color-accent) text-(--color-accent)'
+                            : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted)'
+                        }`}
+                      >
+                        {voice.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            )}
-          </div>
-        );
-      })}
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-(--color-text-muted) mb-1.5">
+                    Delivery
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DELIVERY_PRESETS.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => applyDelivery(speaker, p.id)}
+                        title={p.hint}
+                        className={`px-2.5 py-1 rounded-full text-xs transition border ${
+                          delivery === p.id
+                            ? 'bg-(--color-accent)/15 border-(--color-accent) text-(--color-accent)'
+                            : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted)'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-(--color-text-muted) mb-1.5">
+                    Pace
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PACE_PRESETS.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => applyPace(speaker, p.speed)}
+                        className={`px-2.5 py-1 rounded-full text-xs transition border ${
+                          pace === p.id
+                            ? 'bg-(--color-accent)/15 border-(--color-accent) text-(--color-accent)'
+                            : 'bg-(--color-surface) border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted)'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

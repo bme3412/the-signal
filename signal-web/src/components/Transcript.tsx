@@ -3,9 +3,13 @@ import type { Chapter, Episode, ScriptSegment } from '../types';
 export const speakerColors: Record<string, string> = {
   ALEX: '#0a84ff',
   JAMIE: '#ff9500',
+  ANCHOR: '#0a84ff',
+  ANALYST: '#2d6a5f',
   HOST: '#0a84ff',
   BULL: '#34c759',
   BEAR: '#ff3b30',
+  LEAD: '#5b4b8a',
+  PEER: '#c2452d',
 };
 
 const roleLabels: Record<Chapter['role'], string> = {

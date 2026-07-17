@@ -61,24 +61,27 @@ enum EpisodeStatus: String, Codable {
 struct ScriptSegment: Codable, Identifiable {
     let speaker: String
     let text: String
+    let delivery: String?
     let charCount: Int
     let durationSeconds: Double?
 
     var id: String { "\(speaker)-\(charCount)-\(text.prefix(20))" }
 
     enum CodingKeys: String, CodingKey {
-        case speaker, text
+        case speaker, text, delivery
         case charCount = "char_count"
         case durationSeconds = "duration_seconds"
     }
 
     var speakerColor: Color {
         switch speaker {
-        case "ALEX": .blue
+        case "ALEX", "ANCHOR", "HOST": .blue
         case "JAMIE": .orange
-        case "HOST": .blue
+        case "ANALYST": .teal
         case "BULL": .green
         case "BEAR": .red
+        case "LEAD": .purple
+        case "PEER": .orange
         default: .gray
         }
     }

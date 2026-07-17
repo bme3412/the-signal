@@ -181,6 +181,7 @@ class ChapterRole(str, Enum):
 class ScriptSegment(BaseModel):
     speaker: str
     text: str
+    delivery: str | None = None  # interrupting | amused | deadpan | ...
     char_count: int = 0
     duration_seconds: float = 0.0
 
@@ -227,6 +228,21 @@ class ProgressEvent(BaseModel):
     at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class EpisodeLink(BaseModel):
+    """A curated URL that supports something said in the episode.
+
+    kind=source — one of the queued articles used to write the show
+    kind=context — web result found for an entity/topic the hosts discuss
+    """
+
+    label: str  # entity or short topic this link is about
+    title: str
+    url: str
+    source: str = ""  # hostname
+    snippet: str = ""
+    kind: str = "context"  # source | context
+
+
 class Episode(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     title: str | None = None
@@ -236,6 +252,7 @@ class Episode(BaseModel):
     style: StyleConfig = Field(default_factory=StyleConfig)
     article_ids: list[str] = Field(default_factory=list)
     script: EpisodeScript | None = None
+    links: list[EpisodeLink] = Field(default_factory=list)
     audio_url: str | None = None
     audio_duration_seconds: float | None = None
     metrics: PipelineMetrics | None = None

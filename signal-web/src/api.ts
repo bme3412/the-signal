@@ -1,4 +1,4 @@
-import type { Article, DiscoverResult, Episode, EpisodeAngle, EpisodeRequest, EpisodeScript, VoicesResponse } from './types';
+import type { Article, DiscoverResult, Episode, EpisodeAngle, EpisodeLink, EpisodeRequest, EpisodeScript, VoicesResponse } from './types';
 
 // In production, set VITE_API_URL to your backend URL (e.g., https://api.yourdomain.com)
 // and VITE_API_TOKEN to the backend's SIGNAL_API_TOKEN.
@@ -46,10 +46,15 @@ export async function submitArticleByUrl(url: string, collection?: string): Prom
   });
 }
 
-export async function submitArticleManual(title: string, text: string, source = 'manual'): Promise<Article> {
+export async function submitArticleManual(
+  title: string,
+  text: string,
+  source = 'manual',
+  collection?: string,
+): Promise<Article> {
   return request('/api/articles', {
     method: 'POST',
-    body: JSON.stringify({ title, text, source }),
+    body: JSON.stringify({ title, text, source, collection }),
   });
 }
 
@@ -89,6 +94,10 @@ export async function generateEpisode(req: EpisodeRequest): Promise<Episode> {
 
 export async function getEpisode(id: string): Promise<Episode> {
   return request(`/api/episodes/${id}`);
+}
+
+export async function getEpisodeLinks(id: string): Promise<EpisodeLink[]> {
+  return request(`/api/episodes/${id}/links`);
 }
 
 export async function getScript(episodeId: string): Promise<EpisodeScript> {

@@ -9,18 +9,30 @@ interface Props {
   articles: Article[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
   onFocusSuggested: (focus: string) => void;
+  onSelectIds: (ids: string[]) => void;
 }
 
-export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh, onFocusSuggested }: Props) {
+export function ArticleQueue({
+  articles,
+  selectedIds,
+  onToggleSelect,
+  onRefresh,
+  onFocusSuggested,
+  onSelectIds,
+}: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
-  // Groups start collapsed; track which ones the user has expanded.
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  /** Which topic group's More panel is open. */
+  const [moreGroup, setMoreGroup] = useState<string | null>(null);
+  /** Collection to attach when adding via Discover / Add article. */
+  const [activeCollection, setActiveCollection] = useState<string | null>(null);
+  // Groups start open; track which ones the user has collapsed.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const toggleExpanded = (name: string) => {
-    setExpandedGroups((prev) => {
+    setCollapsedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(name)) {
         next.delete(name);
@@ -30,6 +42,19 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
       return next;
     });
   };
+
+  const openDiscover = (groupName?: string) => {
+    setActiveCollection(groupName && groupName !== UNGROUPED ? groupName : null);
+    setShowDiscover(true);
+    setMoreGroup(null);
+  };
+
+  const openAdd = (groupName?: string) => {
+    setActiveCollection(groupName && groupName !== UNGROUPED ? groupName : null);
+    setShowAddModal(true);
+    setMoreGroup(null);
+  };
+
   const [addMode, setAddMode] = useState<'url' | 'manual'>('url');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -43,10 +68,11 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
     setError(null);
 
     try {
+      const collection = activeCollection || undefined;
       if (addMode === 'url') {
-        await api.submitArticleByUrl(url);
+        await api.submitArticleByUrl(url, collection);
       } else {
-        await api.submitArticleManual(title, text);
+        await api.submitArticleManual(title, text, 'manual', collection);
       }
       setShowAddModal(false);
       setUrl('');
@@ -77,60 +103,77 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
       list.push(article);
       map.set(key, list);
     }
-    // Topic groups first (newest article first within each), loose saves last
-    return [...map.entries()].sort(([a], [b]) =>
-      a === UNGROUPED ? 1 : b === UNGROUPED ? -1 : 0
-    );
+    // Newest topic first; ungrouped saves last. Never merge distinct collections.
+    return [...map.entries()].sort(([aName, aArts], [bName, bArts]) => {
+      if (aName === UNGROUPED) return 1;
+      if (bName === UNGROUPED) return -1;
+      const aLatest = Math.max(...aArts.map((x) => new Date(x.created_at).getTime()));
+      const bLatest = Math.max(...bArts.map((x) => new Date(x.created_at).getTime()));
+      return bLatest - aLatest;
+    });
   }, [articles]);
 
   const toggleGroup = (groupArticles: Article[], allSelected: boolean) => {
-    for (const article of groupArticles) {
-      const isSelected = selectedIds.has(article.id);
-      if (allSelected ? isSelected : !isSelected) {
-        onToggleSelect(article.id);
-      }
+    if (allSelected) {
+      // Deselect this topic only.
+      onSelectIds([]);
+    } else {
+      // Exclusive: check this topic alone — never merge with another.
+      onSelectIds(groupArticles.map((a) => a.id));
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl font-semibold">The queue</h2>
           <p className="text-sm text-(--color-text-secondary) mt-1">
-            Save articles here, then select the ones for your next episode.
+            One topic at a time — pick a group for the next episode.
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        {articles.length > 0 && (
           <button
-            onClick={() => setShowDiscover(true)}
-            className="px-4 py-2 bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) rounded-full font-semibold text-sm hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
+            onClick={() => openDiscover()}
+            className="shrink-0 px-4 py-2 rounded-full font-semibold text-sm border bg-(--color-surface) text-(--color-text-secondary) border-(--color-border) hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
           >
-            Discover topic
+            New topic
           </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
-          >
-            + Add article
-          </button>
-        </div>
+        )}
       </div>
 
       {articles.length === 0 ? (
-        <div className="rise text-center py-16 px-6 bg-(--color-surface) border border-(--color-border) rounded-2xl">
-          <p className="font-display text-2xl italic mb-2">Nothing in the queue.</p>
-          <p className="text-(--color-text-secondary)">
-            Add an article by URL or paste text — it becomes tomorrow's episode.
-          </p>
+        <div className="rise text-center py-16 px-6 bg-(--color-surface) border border-(--color-border) rounded-2xl space-y-4">
+          <div>
+            <p className="font-display text-2xl italic mb-2">Nothing in the queue.</p>
+            <p className="text-(--color-text-secondary)">
+              Add an article by URL or paste text — it becomes tomorrow's episode.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => openDiscover()}
+              className="px-4 py-2 bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) rounded-full font-semibold text-sm hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
+            >
+              Discover topic
+            </button>
+            <button
+              onClick={() => openAdd()}
+              className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
+            >
+              + Add article
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
           {groups.map(([name, groupArticles]) => {
             const allSelected = groupArticles.every((a) => selectedIds.has(a.id));
             const someSelected = groupArticles.some((a) => selectedIds.has(a.id));
-            const isExpanded = expandedGroups.has(name);
+            const isExpanded = !collapsedGroups.has(name);
             const selectedCount = groupArticles.filter((a) => selectedIds.has(a.id)).length;
+            const moreOpen = moreGroup === name;
+            const isTopic = name !== UNGROUPED;
             return (
               <section
                 key={name}
@@ -159,11 +202,12 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
                   </button>
                   <button
                     onClick={() => toggleExpanded(name)}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-lg font-semibold leading-none bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
                     aria-expanded={isExpanded}
+                    aria-label={isExpanded ? 'Collapse group' : 'Expand group'}
+                    title={isExpanded ? 'Collapse' : 'Expand'}
                   >
-                    {isExpanded ? 'Hide' : 'Show'}
-                    <span className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                    {isExpanded ? '−' : '+'}
                   </button>
                 </div>
                 {isExpanded && (
@@ -206,6 +250,41 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
                       </div>
                     </div>
                   ))}
+
+                  {/* More — add further articles into this topic */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setMoreGroup(moreOpen ? null : name)}
+                      aria-expanded={moreOpen}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                        moreOpen
+                          ? 'bg-(--color-accent) text-white border-(--color-accent)'
+                          : 'bg-(--color-background) text-(--color-text-secondary) border-(--color-border) hover:border-(--color-accent) hover:text-(--color-text-primary)'
+                      }`}
+                    >
+                      {moreOpen ? 'Less' : 'More'}
+                    </button>
+                    <div className="more-panel mt-2" data-open={moreOpen}>
+                      <div className="more-panel-inner">
+                        <div className="flex flex-wrap gap-2 pb-1">
+                          {isTopic && (
+                            <button
+                              onClick={() => openDiscover(name)}
+                              className="px-4 py-2 bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) rounded-full font-semibold text-sm hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
+                            >
+                              Find more on this topic
+                            </button>
+                          )}
+                          <button
+                            onClick={() => openAdd(name)}
+                            className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
+                          >
+                            + Add article
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 )}
               </section>
@@ -216,9 +295,36 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
 
       {showDiscover && (
         <DiscoverModal
+          initialTopic={activeCollection || ''}
+          forceCollection={activeCollection || undefined}
           onClose={() => setShowDiscover(false)}
           onAdded={onRefresh}
           onFocusSuggested={onFocusSuggested}
+          onFinished={async (info) => {
+            setShowDiscover(false);
+            await onRefresh();
+            // Expand the topic and check every article in that category.
+            try {
+              const latest = await api.listArticles();
+              const urlSet = new Set(info.urls);
+              // Prefer the group we opened from when searching for more on a topic.
+              const collection = info.collection || activeCollection || '';
+              const groupName = collection || UNGROUPED;
+              const inCollection = collection
+                ? latest.filter((a) => a.collection === collection)
+                : latest.filter((a) => a.url && urlSet.has(a.url));
+              const ids = inCollection.map((a) => a.id);
+              if (ids.length > 0) onSelectIds(ids);
+              setCollapsedGroups((prev) => {
+                if (!prev.has(groupName)) return prev;
+                const next = new Set(prev);
+                next.delete(groupName);
+                return next;
+              });
+            } catch (err) {
+              console.error('Failed to select discovered articles:', err);
+            }
+          }}
         />
       )}
 
@@ -226,7 +332,13 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-(--color-surface) rounded-2xl p-6 w-full max-w-lg border border-(--color-border)">
-            <h3 className="font-display text-xl font-semibold mb-4">Add article</h3>
+            <h3 className="font-display text-xl font-semibold mb-1">Add article</h3>
+            {activeCollection && (
+              <p className="text-sm text-(--color-text-secondary) mb-4">
+                Adding to <span className="italic">{activeCollection}</span>
+              </p>
+            )}
+            {!activeCollection && <div className="mb-4" />}
 
             <div className="flex gap-2 mb-4">
               <button

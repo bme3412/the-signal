@@ -8,12 +8,14 @@ from fastapi.responses import FileResponse
 from config import get_settings
 from models import (
     Episode,
+    EpisodeLink,
     EpisodeManifest,
     EpisodeRequest,
     EpisodeScript,
     EpisodeStatus,
     ManifestChapter,
 )
+from services import links_svc
 from services.pipeline import run_pipeline
 from services.tts_svc import get_voices_info
 
@@ -92,6 +94,32 @@ async def get_episode_script(episode_id: str, request: Request):
     if not episode.script:
         raise HTTPException(404, "Script not yet available")
     return episode.script
+
+
+@router.get("/episodes/{episode_id}/links", response_model=list[EpisodeLink])
+async def get_episode_links(episode_id: str, request: Request):
+    """Curated reading list for the episode (sources + contextual web results).
+
+    Lazily builds links for older episodes that predate curation.
+    """
+    store = _get_store(request)
+    episode = store.get_episode(episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    if episode.links:
+        return episode.links
+
+    articles = []
+    for aid in episode.article_ids:
+        art = store.get_article(aid)
+        if art:
+            articles.append(art)
+    settings = get_settings()
+    links = await links_svc.curate_links(
+        articles, episode.script, episode.title, episode.focus, settings,
+    )
+    store.update_episode(episode_id, links=links)
+    return links
 
 
 @router.get("/episodes/{episode_id}/manifest", response_model=EpisodeManifest)

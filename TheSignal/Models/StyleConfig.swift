@@ -59,7 +59,7 @@ enum Tone: String, Codable, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .casual: "person.2.fill"
-        case .polished: "mic.fill"
+        case .polished: "person.2.wave.2.fill"
         case .debate: "arrow.left.arrow.right"
         case .technical: "wrench.and.screwdriver.fill"
         }
@@ -68,9 +68,9 @@ enum Tone: String, Codable, CaseIterable, Identifiable {
     var shortDescription: String {
         switch self {
         case .casual: "Two hosts, natural banter"
-        case .polished: "NPR-quality solo narrator"
+        case .polished: "NPR-style anchor + analyst"
         case .debate: "Bull vs Bear, opposing views"
-        case .technical: "Precise deep-dive analysis"
+        case .technical: "Two engineers, deep dive"
         }
     }
 

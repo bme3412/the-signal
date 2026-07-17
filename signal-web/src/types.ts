@@ -114,6 +114,7 @@ export type EpisodeStatus = 'queued' | 'summarizing' | 'scripting' | 'synthesizi
 export interface ScriptSegment {
   speaker: string;
   text: string;
+  delivery?: string | null;
   char_count: number;
   duration_seconds: number;
 }
@@ -173,6 +174,15 @@ export interface ProgressEvent {
   at: string;
 }
 
+export interface EpisodeLink {
+  label: string;
+  title: string;
+  url: string;
+  source: string;
+  snippet: string;
+  kind: 'source' | 'context' | string;
+}
+
 export interface Episode {
   id: string;
   title: string | null;
@@ -182,6 +192,7 @@ export interface Episode {
   style: StyleConfig;
   article_ids: string[];
   script: EpisodeScript | null;
+  links?: EpisodeLink[];
   audio_url: string | null;
   audio_duration_seconds: number | null;
   metrics: PipelineMetrics | null;
@@ -275,9 +286,9 @@ export const dimensionMeta = {
     label: 'Tone',
     options: [
       { value: 'casual', label: 'Casual', desc: 'Two hosts, natural banter' },
-      { value: 'polished', label: 'Polished', desc: 'NPR-quality solo narrator' },
+      { value: 'polished', label: 'Polished', desc: 'NPR-style anchor + analyst' },
       { value: 'debate', label: 'Debate', desc: 'Bull vs Bear, opposing views' },
-      { value: 'technical', label: 'Technical', desc: 'Precise deep-dive analysis' },
+      { value: 'technical', label: 'Technical', desc: 'Two engineers, deep dive' },
     ],
   },
   lens: {

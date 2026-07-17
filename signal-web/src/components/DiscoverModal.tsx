@@ -6,6 +6,12 @@ interface Props {
   onClose: () => void;
   onAdded: () => void;
   onFocusSuggested: (focus: string) => void;
+  /** Prefill the search box (e.g. existing topic group name). */
+  initialTopic?: string;
+  /** When set, newly added articles join this collection (adding more to a group). */
+  forceCollection?: string;
+  /** Fired when the user finishes after adding articles (Done). */
+  onFinished?: (info: { collection: string; urls: string[] }) => void;
 }
 
 const recencyOptions = [
@@ -17,9 +23,17 @@ const recencyOptions = [
 
 type AddState = 'adding' | 'added' | { error: string };
 
-export function DiscoverModal({ onClose, onAdded, onFocusSuggested }: Props) {
-  const [topic, setTopic] = useState('');
-  const [searchedTopic, setSearchedTopic] = useState('');
+export function DiscoverModal({
+  onClose,
+  onAdded,
+  onFocusSuggested,
+  onFinished,
+  initialTopic = '',
+  forceCollection,
+}: Props) {
+  const [topic, setTopic] = useState(initialTopic);
+  const [searchedTopic, setSearchedTopic] = useState(initialTopic);
+  const collectionName = forceCollection || searchedTopic;
   const [recency, setRecency] = useState('week');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -92,7 +106,7 @@ export function DiscoverModal({ onClose, onAdded, onFocusSuggested }: Props) {
       if (addStates[url] === 'added') continue;
       setAddStates((s) => ({ ...s, [url]: 'adding' }));
       try {
-        await api.submitArticleByUrl(url, searchedTopic);
+        await api.submitArticleByUrl(url, collectionName);
         setAddStates((s) => ({ ...s, [url]: 'added' }));
         onAdded();
       } catch (err) {
@@ -104,9 +118,21 @@ export function DiscoverModal({ onClose, onAdded, onFocusSuggested }: Props) {
   };
 
   const pendingCount = [...selected].filter((u) => addStates[u] !== 'added').length;
+  const justAddedCount = Object.values(addStates).filter((s) => s === 'added').length;
+  const hasAdded = justAddedCount > 0;
+
+  const finish = () => {
+    if (hasAdded) {
+      const urls = Object.entries(addStates)
+        .filter(([, s]) => s === 'added')
+        .map(([u]) => u);
+      onFinished?.({ collection: collectionName, urls });
+    }
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={finish}>
       <div
         className="bg-(--color-surface) rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-(--color-border)"
         onClick={(e) => e.stopPropagation()}
@@ -253,19 +279,32 @@ export function DiscoverModal({ onClose, onAdded, onFocusSuggested }: Props) {
           })}
         </div>
 
-        {/* Footer */}
-        <div className="p-6 pt-4 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-(--color-text-secondary) hover:text-(--color-text-primary) transition text-sm"
-          >
-            {Object.values(addStates).some((s) => s === 'added') ? 'Done' : 'Cancel'}
-          </button>
+        {/* Footer — after a successful add, Done becomes the primary exit CTA */}
+        <div className="p-6 pt-4 flex items-center justify-between gap-3">
+          {hasAdded ? (
+            <button
+              onClick={finish}
+              className="px-5 py-2.5 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition shadow-sm"
+            >
+              Done{justAddedCount > 0 ? ` · ${justAddedCount} added` : ''}
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-(--color-text-secondary) hover:text-(--color-text-primary) transition text-sm"
+            >
+              Cancel
+            </button>
+          )}
           {results && results.length > 0 && (
             <button
               onClick={addSelected}
               disabled={pendingCount === 0 || addingAll}
-              className="px-5 py-2.5 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition disabled:opacity-50"
+              className={`px-5 py-2.5 rounded-full font-semibold text-sm transition disabled:opacity-50 ${
+                hasAdded
+                  ? 'border border-(--color-border) text-(--color-text-primary) bg-(--color-background) hover:border-(--color-accent)'
+                  : 'bg-(--color-accent) text-white hover:opacity-90'
+              }`}
             >
               {addingAll
                 ? 'Adding…'

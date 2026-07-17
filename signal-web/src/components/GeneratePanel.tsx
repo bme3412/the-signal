@@ -11,20 +11,37 @@ interface Props {
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onEditSelection: () => void;
+  onGoListen: () => void;
+  onGoCompose: () => void;
+  /** False when user navigated away during generation — keep mounted, show slim bar. */
+  visible: boolean;
+  onBusyChange: (busy: boolean) => void;
   focus: string;
   onFocusChange: (focus: string) => void;
   onEpisodeReady: (episode: Episode) => void;
 }
 
-const statusSteps: { status: EpisodeStatus; label: string }[] = [
-  { status: 'summarizing', label: 'Summarizing' },
-  { status: 'scripting', label: 'Writing Script' },
-  { status: 'synthesizing', label: 'Generating Audio' },
-  { status: 'mixing', label: 'Mixing' },
-  { status: 'ready', label: 'Ready' },
+const statusSteps: { status: EpisodeStatus; label: string; vibe: string }[] = [
+  { status: 'summarizing', label: 'Reading', vibe: 'Getting cozy with the stories' },
+  { status: 'scripting', label: 'Writing', vibe: 'Shaping the show' },
+  { status: 'synthesizing', label: 'Voicing', vibe: 'Hosts on the mic' },
+  { status: 'mixing', label: 'Mixing', vibe: 'Sewing the takes together' },
+  { status: 'ready', label: 'Ready', vibe: 'You’re on air' },
 ];
 
-export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSelection, focus, onFocusChange, onEpisodeReady }: Props) {
+export function GeneratePanel({
+  articles,
+  selectedIds,
+  onToggleSelect,
+  onEditSelection,
+  onGoListen,
+  onGoCompose,
+  visible,
+  onBusyChange,
+  focus,
+  onFocusChange,
+  onEpisodeReady,
+}: Props) {
   const [style, setStyle] = useState<StyleConfig>(defaultStyleConfig);
   const [targetMinutes, setTargetMinutes] = useState(20);
   const [voiceConfig, setVoiceConfig] = useState<Record<string, SpeakerConfig>>({});
@@ -36,11 +53,13 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
   const [error, setError] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
-  const [showProduction, setShowProduction] = useState(false);
-
   const selectedArticles = articles.filter((a) => selectedIds.has(a.id));
   const totalWords = selectedArticles.reduce((sum, a) => sum + a.word_count, 0);
   const estimatedCost = targetMinutes * 0.03;
+
+  useEffect(() => {
+    onBusyChange(generating);
+  }, [generating, onBusyChange]);
 
   // Load voices
   useEffect(() => {
@@ -84,6 +103,7 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
     setGenerating(true);
     setError(null);
     setCurrentEpisode(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       const episode = await api.generateEpisode({
@@ -105,6 +125,144 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
     const idx = statusSteps.findIndex((s) => s.status === status);
     return idx === -1 ? 0 : idx;
   };
+
+  const currentStep = currentEpisode
+    ? statusSteps[getStepIndex(currentEpisode.status)] ?? statusSteps[0]
+    : null;
+  const latestMessage =
+    currentEpisode?.progress && currentEpisode.progress.length > 0
+      ? currentEpisode.progress[currentEpisode.progress.length - 1].message
+      : currentStep?.vibe ?? 'Warming up the studio…';
+
+  // Fixed studio overlay when Compose is focused; slim bar when browsing away.
+  if (generating) {
+    const currentIdx = currentEpisode
+      ? getStepIndex(currentEpisode.status)
+      : 0;
+
+    if (!visible) {
+      return (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-(--color-text-primary) bg-(--color-surface) shadow-[0_-12px_40px_rgba(34,29,21,0.12)]">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+            <span className="studio-dot w-2 h-2 rounded-full bg-(--color-accent) shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">
+                {currentStep?.label ?? 'Working'} — {latestMessage}
+              </p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-(--color-text-muted)">
+                Generation continues in the background
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onGoCompose}
+              className="shrink-0 px-3 py-2 text-sm font-semibold text-(--color-accent) hover:underline"
+            >
+              Studio
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-40 bg-(--color-background) flex flex-col">
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-(--color-border)">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="studio-dot w-2 h-2 rounded-full bg-(--color-accent) shrink-0" />
+            <span className="font-display font-semibold italic truncate">In the studio</span>
+          </div>
+          <button
+            type="button"
+            onClick={onGoListen}
+            className="text-sm text-(--color-text-secondary) hover:text-(--color-accent) transition shrink-0"
+          >
+            Browse Listen →
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 flex items-center justify-center p-4 sm:p-6">
+          <div className="studio-panel w-full max-w-lg max-h-full flex flex-col bg-(--color-surface) border-2 border-(--color-text-primary) rounded-2xl shadow-[0_16px_50px_rgba(34,29,21,0.12)] overflow-hidden">
+            <div className="shrink-0 px-5 sm:px-6 pt-5 pb-3 text-center">
+              <p className="font-display text-2xl font-semibold italic leading-tight">
+                {currentStep?.label ?? 'Reading'}
+              </p>
+              <p className="text-sm text-(--color-text-muted) mt-1">
+                {currentStep?.vibe ?? 'Warming up the studio…'}
+              </p>
+              <p
+                key={latestMessage}
+                className="feed-line text-sm sm:text-base text-(--color-text-secondary) mt-3 leading-snug"
+              >
+                {latestMessage}
+              </p>
+            </div>
+
+            <div className="shrink-0 px-5 sm:px-6 pb-3 flex items-center gap-1.5">
+              {statusSteps.filter((s) => s.status !== 'ready').map((step, i) => {
+                const isComplete = i < currentIdx;
+                const isCurrent = i === currentIdx;
+                return (
+                  <div key={step.status} className="flex-1 min-w-0">
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-500 ${
+                        isComplete || isCurrent
+                          ? 'bg-(--color-accent)'
+                          : 'bg-(--color-border)'
+                      } ${isCurrent ? 'opacity-100' : isComplete ? 'opacity-70' : 'opacity-40'}`}
+                    />
+                    <p
+                      className={`mt-1.5 font-mono text-[10px] uppercase tracking-wider text-center truncate ${
+                        isCurrent
+                          ? 'text-(--color-accent)'
+                          : 'text-(--color-text-muted)'
+                      }`}
+                    >
+                      {step.label}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div
+              ref={feedRef}
+              className="flex-1 min-h-0 overflow-y-auto mx-5 sm:mx-6 mb-4 rounded-xl bg-(--color-background) border border-(--color-border) px-4 py-3 space-y-2.5"
+            >
+              {currentEpisode?.progress && currentEpisode.progress.length > 0 ? (
+                currentEpisode.progress.map((event, i, arr) => {
+                  const isLast = i === arr.length - 1;
+                  return (
+                    <div
+                      key={`${event.at}-${i}`}
+                      className={`feed-line text-sm leading-snug ${
+                        isLast
+                          ? 'text-(--color-text-primary) font-medium'
+                          : 'text-(--color-text-muted)'
+                      }`}
+                    >
+                      {event.message}
+                      {isLast && (
+                        <span className="ml-1 text-(--color-accent) animate-pulse">✦</span>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-(--color-text-muted)">Cueing the hosts…</p>
+              )}
+            </div>
+
+            <p className="shrink-0 px-5 pb-4 text-center font-mono text-[10px] uppercase tracking-wider text-(--color-text-muted)">
+              Safe to browse — we’ll open the episode when it’s ready
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!visible) return null;
 
   if (selectedArticles.length === 0) {
     return (
@@ -187,7 +345,6 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
         </div>
       </div>
 
-      {/* Style picker */}
       <StylePicker
         style={style}
         onChange={setStyle}
@@ -195,90 +352,12 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
         onTargetMinutesChange={setTargetMinutes}
       />
 
-      {/* Voices & production (collapsed by default) */}
-      <div className="bg-(--color-surface) rounded-2xl border border-(--color-border) overflow-hidden">
-        <button
-          onClick={() => setShowProduction(!showProduction)}
-          className="w-full p-4 flex items-center justify-between text-sm"
-        >
-          <span className="text-(--color-text-secondary)">Voices &amp; production</span>
-          <span className="text-(--color-text-muted)">{showProduction ? '▴' : '▾'}</span>
-        </button>
-        {showProduction && (
-          <div className="px-4 pb-4 space-y-6">
-            <VoicePicker tone={style.tone} voices={voices} voiceConfig={voiceConfig} onChange={setVoiceConfig} />
-            <AudioSettings config={audioConfig} onChange={setAudioConfig} />
-          </div>
-        )}
+      {/* Voices & production — always open, kept readable */}
+      <div className="bg-(--color-surface) rounded-2xl border border-(--color-border) p-5 space-y-8">
+        <VoicePicker tone={style.tone} voices={voices} voiceConfig={voiceConfig} onChange={setVoiceConfig} />
+        <div className="border-t border-(--color-border)" />
+        <AudioSettings config={audioConfig} onChange={setAudioConfig} />
       </div>
-
-      {/* Progress card */}
-      {currentEpisode && generating && (
-        <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border)">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-medium">Pipeline</span>
-            <div className="w-4 h-4 border-2 border-(--color-accent) border-t-transparent rounded-full animate-spin" />
-          </div>
-          <div className="space-y-2">
-            {statusSteps.map((step, i) => {
-              const currentIdx = getStepIndex(currentEpisode.status);
-              const isComplete = i < currentIdx;
-              const isCurrent = i === currentIdx;
-
-              return (
-                <div key={step.status} className="flex items-center gap-3">
-                  <div
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
-                      isComplete
-                        ? 'bg-green-500 text-white'
-                        : isCurrent
-                        ? 'bg-(--color-accent) text-white'
-                        : 'bg-(--color-border) text-(--color-text-muted)'
-                    }`}
-                  >
-                    {isComplete ? '✓' : i + 1}
-                  </div>
-                  <span
-                    className={
-                      isCurrent
-                        ? 'text-(--color-text-primary)'
-                        : isComplete
-                        ? 'text-(--color-text-secondary)'
-                        : 'text-(--color-text-muted)'
-                    }
-                  >
-                    {step.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Live narration feed */}
-          {currentEpisode.progress && currentEpisode.progress.length > 0 && (
-            <div
-              ref={feedRef}
-              className="mt-4 pt-4 border-t border-(--color-border) max-h-44 overflow-y-auto font-mono text-xs space-y-1"
-            >
-              {currentEpisode.progress.slice(-40).map((event, i, arr) => {
-                const isLast = i === arr.length - 1;
-                return (
-                  <div
-                    key={`${event.at}-${i}`}
-                    className={isLast ? 'text-(--color-text-primary)' : 'text-(--color-text-muted)'}
-                  >
-                    <span className="text-(--color-accent) mr-1.5">
-                      {isLast ? '▸' : '·'}
-                    </span>
-                    {event.message}
-                    {isLast && <span className="ml-0.5 animate-pulse">▍</span>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Error */}
       {error && (
@@ -303,14 +382,7 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
         disabled={selectedArticles.length === 0 || generating}
         className="w-full py-4 bg-(--color-accent) text-white rounded-xl font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
-        {generating ? (
-          <>
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Generating...</span>
-          </>
-        ) : (
-          <span>Generate episode</span>
-        )}
+        Generate episode
       </button>
     </div>
   );

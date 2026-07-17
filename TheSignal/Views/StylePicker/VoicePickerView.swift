@@ -8,8 +8,9 @@ struct VoicePickerView: View {
     private var speakers: [String] {
         switch tone {
         case .casual: ["ALEX", "JAMIE"]
-        case .polished, .technical: ["HOST"]
+        case .polished: ["ANCHOR", "ANALYST"]
         case .debate: ["BULL", "BEAR"]
+        case .technical: ["LEAD", "PEER"]
         }
     }
 
@@ -82,11 +83,13 @@ struct SpeakerVoiceRow: View {
 
     private var speakerColor: Color {
         switch speaker {
-        case "ALEX": .blue
+        case "ALEX", "ANCHOR", "HOST": .blue
         case "JAMIE": .orange
-        case "HOST": .blue
+        case "ANALYST": .teal
         case "BULL": .green
         case "BEAR": .red
+        case "LEAD": .purple
+        case "PEER": .orange
         default: .gray
         }
     }

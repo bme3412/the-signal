@@ -24,12 +24,49 @@ VOICES: dict[str, str] = {
 
 DEFAULT_VOICE_MAP: dict[str, dict[str, str]] = {
     "casual": {"ALEX": VOICES["antoni"], "JAMIE": VOICES["rachel"]},
-    "polished": {"HOST": VOICES["josh"]},
+    "polished": {"ANCHOR": VOICES["josh"], "ANALYST": VOICES["sarah"]},
     "debate": {"BULL": VOICES["drew"], "BEAR": VOICES["sam"]},
-    "technical": {"HOST": VOICES["adam"]},
+    "technical": {"LEAD": VOICES["adam"], "PEER": VOICES["antoni"]},
 }
 
 _API_BASE = "https://api.elevenlabs.io"
+
+# Per-line delivery nudges applied on top of the speaker's base VoiceSettings.
+# Animated/reactive lines: lower stability + higher style. Flat/deadpan: opposite.
+_DELIVERY_DELTAS: dict[str, dict[str, float]] = {
+    "neutral": {},
+    "warm": {"stability": -0.05, "style": 0.05},
+    "amused": {"stability": -0.15, "style": 0.2},
+    "deadpan": {"stability": 0.2, "style": -0.2},
+    "pointed": {"stability": -0.1, "style": 0.15},
+    "interrupting": {"stability": -0.2, "style": 0.25, "speed": 0.05},
+    "skeptical": {"stability": -0.1, "style": 0.1},
+    "excited": {"stability": -0.2, "style": 0.25, "speed": 0.08},
+}
+
+
+def _clamp(value: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, value))
+
+
+def apply_delivery(
+    base: VoiceSettings | None,
+    delivery: str | None,
+) -> VoiceSettings:
+    """Nudge base voice settings from a segment delivery tag."""
+    vs = (base or VoiceSettings()).model_copy()
+    if not delivery:
+        return vs
+    deltas = _DELIVERY_DELTAS.get(delivery.lower())
+    if not deltas:
+        return vs
+    vs.stability = _clamp(vs.stability + deltas.get("stability", 0.0), 0.0, 1.0)
+    vs.style = _clamp(vs.style + deltas.get("style", 0.0), 0.0, 1.0)
+    vs.similarity_boost = _clamp(
+        vs.similarity_boost + deltas.get("similarity_boost", 0.0), 0.0, 1.0
+    )
+    vs.speed = _clamp(vs.speed + deltas.get("speed", 0.0), 0.7, 1.2)
+    return vs
 
 
 async def synthesize_segment(
@@ -68,27 +105,37 @@ async def synthesize_script(
     voice_config: dict[str, SpeakerConfig] | None,
     tone: str,
     settings: Settings,
-    on_segment: Callable[[int, str], None] | None = None,
+    on_segment: Callable[[int, str, str], None] | None = None,
 ) -> list[bytes]:
     defaults = DEFAULT_VOICE_MAP.get(tone, DEFAULT_VOICE_MAP["casual"])
 
     audio_chunks: list[bytes] = []
     for i, seg in enumerate(segments):
         if on_segment:
-            on_segment(i, seg.speaker)
+            on_segment(i, seg.speaker, seg.text)
         # Priority: voice_config > voice_mapping > defaults
         if voice_config and seg.speaker in voice_config:
             config = voice_config[seg.speaker]
             voice_id = config.voice_id
-            voice_settings = config.settings
+            base_settings = config.settings
         elif voice_mapping and seg.speaker in voice_mapping:
             voice_id = voice_mapping[seg.speaker]
-            voice_settings = None
+            base_settings = None
         else:
             voice_id = defaults.get(seg.speaker, list(defaults.values())[0])
-            voice_settings = None
+            base_settings = None
 
-        log.info("tts.segment", index=i, speaker=seg.speaker, chars=seg.char_count)
+        voice_settings = apply_delivery(base_settings, seg.delivery)
+        log.info(
+            "tts.segment",
+            index=i,
+            speaker=seg.speaker,
+            delivery=seg.delivery,
+            chars=seg.char_count,
+            stability=voice_settings.stability,
+            style=voice_settings.style,
+            speed=voice_settings.speed,
+        )
         chunk = await synthesize_segment(seg.text, voice_id, settings, voice_settings)
         audio_chunks.append(chunk)
 

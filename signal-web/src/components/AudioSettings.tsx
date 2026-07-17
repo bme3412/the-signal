@@ -5,126 +5,118 @@ interface Props {
   onChange: (config: AudioProductionConfig) => void;
 }
 
+const GAP_PRESETS = [
+  { id: 'tight', label: 'Tight', ms: 150, hint: 'Rapid-fire' },
+  { id: 'natural', label: 'Natural', ms: 300, hint: 'Default' },
+  { id: 'spacious', label: 'Spacious', ms: 500, hint: 'Room to breathe' },
+];
+
+function nearestGap(ms: number): string {
+  let best = GAP_PRESETS[1].id;
+  let bestDist = Infinity;
+  for (const p of GAP_PRESETS) {
+    const dist = Math.abs(ms - p.ms);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p.id;
+    }
+  }
+  return best;
+}
+
+function Toggle({
+  on,
+  onToggle,
+  title,
+  description,
+}: {
+  on: boolean;
+  onToggle: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center gap-3 text-left"
+    >
+      <div
+        className={`w-10 h-6 rounded-full transition relative shrink-0 ${
+          on ? 'bg-(--color-accent)' : 'bg-(--color-border)'
+        }`}
+      >
+        <div
+          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+            on ? 'translate-x-5' : 'translate-x-1'
+          }`}
+        />
+      </div>
+      <div>
+        <div className="text-sm font-medium">{title}</div>
+        <div className="text-xs text-(--color-text-muted)">{description}</div>
+      </div>
+    </button>
+  );
+}
+
 export function AudioSettings({ config, onChange }: Props) {
   const update = <K extends keyof AudioProductionConfig>(key: K, value: AudioProductionConfig[K]) => {
     onChange({ ...config, [key]: value });
   };
 
-  return (
-    <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border) space-y-4">
-      <h4 className="font-medium">Audio Production</h4>
+  const gap = nearestGap(config.silence_duration_ms);
 
-      {/* Silence duration */}
+  return (
+    <div className="space-y-4">
       <div>
-        <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-(--color-text-secondary)">Gap Between Segments</span>
-          <span className="font-mono text-(--color-text-muted)">{config.silence_duration_ms}ms</span>
-        </div>
-        <input
-          type="range"
-          min={100}
-          max={1000}
-          step={50}
-          value={config.silence_duration_ms}
-          onChange={(e) => update('silence_duration_ms', Number(e.target.value))}
-        />
-        <p className="text-xs text-(--color-text-muted) mt-1">
-          Shorter for rapid-fire, longer for dramatic pauses
+        <h3 className="font-display text-lg font-semibold">Production</h3>
+        <p className="text-sm text-(--color-text-secondary) mt-0.5">
+          Light mix choices — defaults are fine for most episodes.
         </p>
       </div>
 
-      {/* Fade controls */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-(--color-text-secondary)">Fade In</span>
-            <span className="font-mono text-(--color-text-muted)">{config.fade_in_ms}ms</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => update('fade_in_ms', Math.max(0, config.fade_in_ms - 50))}
-              disabled={config.fade_in_ms <= 0}
-              className="w-8 h-8 rounded-full bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted) disabled:opacity-50 transition"
-            >
-              −
-            </button>
-            <span className="flex-1 text-center font-mono text-sm">{config.fade_in_ms}</span>
-            <button
-              onClick={() => update('fade_in_ms', Math.min(500, config.fade_in_ms + 50))}
-              disabled={config.fade_in_ms >= 500}
-              className="w-8 h-8 rounded-full bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted) disabled:opacity-50 transition"
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-(--color-text-secondary)">Fade Out</span>
-            <span className="font-mono text-(--color-text-muted)">{config.fade_out_ms}ms</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => update('fade_out_ms', Math.max(0, config.fade_out_ms - 50))}
-              disabled={config.fade_out_ms <= 0}
-              className="w-8 h-8 rounded-full bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted) disabled:opacity-50 transition"
-            >
-              −
-            </button>
-            <span className="flex-1 text-center font-mono text-sm">{config.fade_out_ms}</span>
-            <button
-              onClick={() => update('fade_out_ms', Math.min(500, config.fade_out_ms + 50))}
-              disabled={config.fade_out_ms >= 500}
-              className="w-8 h-8 rounded-full bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted) disabled:opacity-50 transition"
-            >
-              +
-            </button>
-          </div>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-(--color-text-muted) mb-1.5">
+          Pause between lines
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {GAP_PRESETS.map((p) => {
+            const active = gap === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => update('silence_duration_ms', p.ms)}
+                className={`px-3.5 py-2 rounded-xl border text-left transition ${
+                  active
+                    ? 'border-(--color-accent) bg-(--color-accent)/10'
+                    : 'border-(--color-border) bg-(--color-background) hover:border-(--color-text-muted)'
+                }`}
+              >
+                <div className={`text-sm font-semibold ${active ? 'text-(--color-accent)' : ''}`}>
+                  {p.label}
+                </div>
+                <div className="text-[11px] text-(--color-text-muted)">{p.hint}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Normalize toggle */}
-      <label className="flex items-center gap-3 cursor-pointer">
-        <div
-          className={`w-10 h-6 rounded-full transition relative ${
-            config.normalize ? 'bg-(--color-accent)' : 'bg-(--color-border)'
-          }`}
-          onClick={() => update('normalize', !config.normalize)}
-        >
-          <div
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-              config.normalize ? 'translate-x-5' : 'translate-x-1'
-            }`}
-          />
-        </div>
-        <div>
-          <div className="text-sm">Normalize Volume</div>
-          <div className="text-xs text-(--color-text-muted)">Even out audio levels across segments</div>
-        </div>
-      </label>
-
-      {/* Intro music toggle */}
-      <label className="flex items-center gap-3 cursor-pointer">
-        <div
-          className={`w-10 h-6 rounded-full transition relative ${
-            config.intro_music ? 'bg-(--color-accent)' : 'bg-(--color-border)'
-          }`}
-          onClick={() => update('intro_music', !config.intro_music)}
-        >
-          <div
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-              config.intro_music ? 'translate-x-5' : 'translate-x-1'
-            }`}
-          />
-        </div>
-        <div>
-          <div className="text-sm">Intro Theme Music</div>
-          <div className="text-xs text-(--color-text-muted)">
-            A short music sting that opens the episode and fades under the first line
-          </div>
-        </div>
-      </label>
+      <div className="space-y-3 pt-1">
+        <Toggle
+          on={config.intro_music}
+          onToggle={() => update('intro_music', !config.intro_music)}
+          title="Intro theme"
+          description="Short sting that fades under the opening line"
+        />
+        <Toggle
+          on={config.normalize}
+          onToggle={() => update('normalize', !config.normalize)}
+          title="Normalize volume"
+          description="Even out loud and quiet segments"
+        />
+      </div>
     </div>
   );
 }

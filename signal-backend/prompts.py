@@ -6,24 +6,80 @@ from models import StyleConfig
 
 TONE_SPEAKERS: dict[str, list[str]] = {
     "casual": ["ALEX", "JAMIE"],
-    "polished": ["HOST"],
+    "polished": ["ANCHOR", "ANALYST"],
     "debate": ["BULL", "BEAR"],
-    "technical": ["HOST"],
+    "technical": ["LEAD", "PEER"],
+}
+
+# Opposing priors — friction generates banter. Every tone is two voices.
+PERSONA_PRIORS: dict[str, dict[str, str]] = {
+    "casual": {
+        "ALEX": (
+            "Instinctive optimist who always finds the upside. Leans into "
+            "opportunity, momentum, and what could go right. Gets excited by "
+            "big moves before the spreadsheet catches up."
+        ),
+        "JAMIE": (
+            "Skeptic who needs the number before believing the story. "
+            "Pushes for evidence, flags hype, and won't let a clean narrative "
+            "pass without a concrete fact."
+        ),
+    },
+    "polished": {
+        "ANCHOR": (
+            "Measured NPR-style host. Frames the story, keeps the pace, "
+            "asks the clarifying question the listener needs."
+        ),
+        "ANALYST": (
+            "Calm specialist with receipts. Adds context, caveats, and the "
+            "number behind the narrative — never a monologue partner who only agrees."
+        ),
+    },
+    "debate": {
+        "BULL": (
+            "Case-for believer. Argues the constructive thesis with data — "
+            "growth, positioning, why the market underprices the upside."
+        ),
+        "BEAR": (
+            "Case-against skeptic. Stresses risks, base rates, and what the "
+            "bullish story is ignoring. Demands falsifiable claims."
+        ),
+    },
+    "technical": {
+        "LEAD": (
+            "Senior engineer walking through architecture and tradeoffs. "
+            "Precise terminology, benchmarks, systems thinking."
+        ),
+        "PEER": (
+            "Sharp peer who pressure-tests the design. Asks 'what breaks?', "
+            "compares alternatives, won't let jargon paper over a weak claim."
+        ),
+    },
 }
 
 # --------------- Dimension instruction banks ---------------
 
 TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": (
-        "Two hosts ALEX and JAMIE, informal. They interrupt, react naturally. "
-        "Alex sets up, Jamie pushes back."
+        "Two hosts ALEX and JAMIE with opposing priors. "
+        "ALEX is the instinctive optimist; JAMIE is the skeptic who needs the "
+        "number. Informal, interruptive, reactive — genuine friction, not "
+        "interchangeable narrators."
     ),
-    "polished": "Single narrator HOST, NPR-style. Measured, precise, authoritative.",
+    "polished": (
+        "Two voices ANCHOR and ANALYST, NPR-style. Measured and precise, "
+        "but still a real conversation — ANCHOR frames, ANALYST brings receipts "
+        "and gentle pushback. Never a solo monologue."
+    ),
     "debate": (
-        "Two hosts BULL and BEAR, opposing positions. "
-        "Substantive disagreement with data."
+        "Two hosts BULL and BEAR with opposing priors. "
+        "BULL argues the constructive case; BEAR stresses risks and base rates. "
+        "Substantive disagreement grounded in data."
     ),
-    "technical": "Single HOST, technical deep-dive. Precise terminology, benchmarks.",
+    "technical": (
+        "Two engineers LEAD and PEER. Precise terminology and benchmarks, "
+        "with PEER stress-testing LEAD's claims. Deep-dive dialogue, not a lecture."
+    ),
 }
 
 DEPTH_INSTRUCTIONS: dict[str, str] = {
@@ -76,10 +132,28 @@ CLOSER_INSTRUCTIONS: dict[str, str] = {
     "question": "Open question for thinking time.",
 }
 
+DELIVERY_TAGS = (
+    "neutral",
+    "warm",
+    "amused",
+    "deadpan",
+    "pointed",
+    "interrupting",
+    "skeptical",
+    "excited",
+)
+
+
+def is_dialogue_tone(tone: str) -> bool:
+    """True when the tone uses two hosts (all current tones do)."""
+    return len(TONE_SPEAKERS.get(tone, [])) > 1
+
+
 # --------------- Prompt builders ---------------
 
 
 def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
+    """Single-pass script prompt — used for monologue tones."""
     speakers = TONE_SPEAKERS[style.tone.value]
     is_dialogue = len(speakers) > 1
 
@@ -164,6 +238,123 @@ def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
     ]
 
     return "\n".join(sections)
+
+
+def build_outline_prompt(style: StyleConfig, target_words: int = 4500) -> str:
+    """Pass 1: content-only outline — no dialogue, no personas."""
+    minutes = target_words // 150
+    return "\n".join([
+        "You plan podcast episode outlines for 'The Signal'.",
+        "Your ONLY job is content: facts, order, and chapter structure.",
+        "Do NOT write dialogue. Do NOT invent host names or banter.",
+        "Do NOT write spoken lines. Plain talking points only.",
+        "",
+        f"DEPTH: {DEPTH_INSTRUCTIONS[style.depth.value]}",
+        f"LENS: {LENS_INSTRUCTIONS[style.lens.value]}",
+        f"AUDIENCE: {AUDIENCE_INSTRUCTIONS[style.audience.value]}",
+        f"STRUCTURE: {STRUCTURE_INSTRUCTIONS[style.structure.value]}",
+        f"CLOSER: {CLOSER_INSTRUCTIONS[style.closer.value]}",
+        "",
+        f"TARGET LENGTH: enough substance for ~{target_words} spoken words "
+        f"(~{minutes} minutes). Scale talking-point density accordingly.",
+        "",
+        "OUTPUT FORMAT:",
+        "TITLE: <specific, catchy 4-9 word episode title drawn from the content>",
+        "",
+        "Then chapters. Before each chapter, a marker on its own line:",
+        "### CHAPTER: <short title> [intro|core|optional|closer]",
+        "- First chapter: cold-open hook + framing, marked [intro]",
+        "- One chapter per article or theme, marked [core]",
+        "- 1-2 bonus chapters marked [optional]: self-contained tangent or deeper "
+        "background between cores — never first or last. Later chapters must NEVER "
+        "depend on optional content (skippable).",
+        "- Final chapter: closer beat matching CLOSER style, marked [closer]",
+        "",
+        "Under each chapter, a numbered list of talking points. Each point must:",
+        "- Be a concrete fact, number, quote, or implication from the sources",
+        "- Preserve specific data (dollar amounts, percentages, names, dates)",
+        "- Stay in plain prose bullets — no [SPEAKER] tags, no dialogue",
+        "",
+        "If KNOWLEDGE BASE CONTEXT is provided, fold continuity into the outline "
+        "as factual background points — but the episode is about the NEW articles.",
+        "Output ONLY the title, chapter markers, and talking points.",
+    ])
+
+
+def build_banter_prompt(style: StyleConfig, target_words: int = 4500) -> str:
+    """Pass 2: dramatize an outline into friction-heavy dialogue."""
+    speakers = TONE_SPEAKERS[style.tone.value]
+    priors = PERSONA_PRIORS.get(style.tone.value, {})
+    persona_lines = [
+        f"- {name}: {priors[name]}" for name in speakers if name in priors
+    ]
+    tags = ", ".join(DELIVERY_TAGS)
+    minutes = target_words // 150
+
+    return "\n".join([
+        "You dramatize podcast outlines into spoken banter for 'The Signal'.",
+        "The outline already has the facts and chapter order. Your ONLY job is "
+        "performance: convert talking points into natural back-and-forth dialogue.",
+        "Do NOT invent new major facts. Do NOT reorder chapters. Do NOT drop "
+        "required numbers/quotes from the outline — react to them.",
+        "",
+        f"TONE: {TONE_INSTRUCTIONS[style.tone.value]}",
+        f"PACING: {PACING_INSTRUCTIONS[style.pacing.value]}",
+        f"HUMOR: {HUMOR_INSTRUCTIONS[style.humor.value]}",
+        "",
+        "PERSONAS (opposing priors — this friction IS the banter):",
+        *persona_lines,
+        "",
+        "FORMAT:",
+        f"Dialogue between {' and '.join(speakers)}.",
+        f"Every spoken line MUST start with [{speakers[0]}]: or [{speakers[1]}]:.",
+        "Keep the outline's TITLE line and ### CHAPTER markers exactly "
+        "(same titles and roles). No narration outside speaker tags.",
+        "",
+        "Each spoken line MUST end with a delivery tag:",
+        f"[SPEAKER]: <spoken text> | delivery: <tag>",
+        f"Allowed tags: {tags}",
+        "Use interrupting on cut-off lines; amused/deadpan/pointed/skeptical/"
+        "excited when the reaction has a clear emotional color; neutral/warm "
+        "for explanatory beats.",
+        "",
+        "BANTER RULES (mechanical — follow all of them):",
+        "- At least one genuine pushback or disagreement per chapter — not "
+        "'yes, and' agreement theater. Pushback = a sharper question or a "
+        "better number, not doom.",
+        "- Ban stock transitions: never write 'that's a great point', "
+        "'absolutely', 'exactly', 'so true', 'couldn't agree more', or "
+        "'let's dive in'. Earn every reaction with something specific.",
+        "- Ground reactions in an actual number, quote, or fact from the "
+        "outline ('wait — two point eight trillion?') — not generic enthusiasm.",
+        "- Include at least one interruption: a cut-off clause ending in an "
+        "em dash (—).",
+        "- Include at least one callback to something said earlier — warm "
+        "recognition, not a gotcha.",
+        "- Vary line length HARD: force some one-word or two-word retorts next "
+        "to longer explanatory lines. Uniform line length is the tell of fake "
+        "banter.",
+        "",
+        "SOUND HUMAN, NOT LIKE A THRILLER OR A ROBOT:",
+        "- Talk like two sharp friends catching up on the news over coffee — "
+        "curious, concrete, lightly skeptical. Warmth beats intensity.",
+        "- Ban conspiratorial / cable-news stakes: no 'geopolitical strategy', "
+        "'the real story they don't want you to know', 'nobody's talking about', "
+        "'everything just changed forever', 'wake-up call for the West', or "
+        "ominous 'if X rests on Y' framing unless the source literally says it.",
+        "- Ban robotic tells: no stacked rhetorical setups ('look, the story "
+        "here isn't just…'), no repeated 'here's the thing', no lecture cadence "
+        "where one host dumps a paragraph and the other only reacts.",
+        "- Prefer specific curiosity ('how did they train that?') over grand "
+        "claims. Let the facts carry drama; hosts don't manufacture it.",
+        "- Finish thoughts in complete spoken sentences. Interruptions are "
+        "spice, not the whole meal.",
+        "- Spell out speech: 'two point eight trillion', not '2.8T'; expand "
+        "abbreviations the first time.",
+        f"- Aim for ~{target_words} words (~{minutes} minutes) of dialogue total.",
+        "",
+        "Output ONLY the TITLE line, chapter markers, and tagged dialogue lines.",
+    ])
 
 
 def build_angles_prompt() -> str:
