@@ -2,7 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage(APIClient.baseURLDefaultsKey) private var backendURL = APIClient.defaultBaseURL
+    @AppStorage(APIClient.apiTokenDefaultsKey) private var apiToken = ""
     @State private var health: HealthResponse?
+    @State private var authOK: Bool?
     @State private var checking = false
     @State private var checkError: String?
 
@@ -12,6 +14,12 @@ struct SettingsView: View {
                 Section {
                     TextField("http://192.168.1.20:8000", text: $backendURL)
                         .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.body.monospaced())
+                        .onSubmit { testConnection() }
+
+                    SecureField("API token (if the backend requires one)", text: $apiToken)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .font(.body.monospaced())
@@ -46,6 +54,9 @@ struct SettingsView: View {
                             statusRow("Anthropic key", ok: health.anthropicConfigured)
                             statusRow("ElevenLabs key", ok: health.elevenlabsConfigured)
                         }
+                        if let authOK {
+                            statusRow("API access", ok: authOK)
+                        }
                         if let checkError {
                             Label(checkError, systemImage: "xmark.octagon.fill")
                                 .font(.caption)
@@ -57,9 +68,10 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         .task {
-            // Sync the stored URL into the client on first appearance, in case
-            // it was edited without hitting Test.
+            // Sync stored settings into the client on first appearance, in
+            // case they were edited without hitting Test.
             await APIClient.shared.setBaseURL(normalized(backendURL))
+            await APIClient.shared.setAPIToken(apiToken)
         }
     }
 
@@ -77,12 +89,21 @@ struct SettingsView: View {
         backendURL = url
         checking = true
         health = nil
+        authOK = nil
         checkError = nil
         Task {
             await APIClient.shared.setBaseURL(url)
+            await APIClient.shared.setAPIToken(apiToken)
             do {
                 health = try await APIClient.shared.checkHealth()
+                // /health is unauthenticated; hit a protected endpoint to
+                // verify the token actually works.
+                _ = try await APIClient.shared.listArticles()
+                authOK = true
             } catch {
+                if health != nil {
+                    authOK = false
+                }
                 checkError = error.localizedDescription
             }
             checking = false

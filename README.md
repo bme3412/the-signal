@@ -79,6 +79,17 @@ Without Firecrawl, extraction falls back to plain readability parsing, which
 fails on JS-heavy sites; URL submissions that yield under 80 words are
 rejected with a clear error rather than producing thin episodes.
 
+## Deploying
+
+The backend deploys to Render via the `render.yaml` blueprint (Docker +
+persistent disk for the knowledge base and audio). In the Render dashboard:
+New → Blueprint → select this repo, then fill in the API keys it prompts for.
+`SIGNAL_API_TOKEN` is auto-generated and required on every API/media request
+(`Authorization: Bearer` or `?token=`) so strangers can't spend your keys.
+
+Frontend on Vercel: set `VITE_API_URL` to the Render URL and `VITE_API_TOKEN`
+to the generated token, then redeploy. iOS: enter both in the Settings tab.
+
 ## Features
 
 ### Knowledge Base

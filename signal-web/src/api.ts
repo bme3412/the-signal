@@ -1,13 +1,16 @@
 import type { Article, DiscoverResult, Episode, EpisodeRequest, EpisodeScript, VoicesResponse } from './types';
 
 // In production, set VITE_API_URL to your backend URL (e.g., https://api.yourdomain.com)
+// and VITE_API_TOKEN to the backend's SIGNAL_API_TOKEN.
 const BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_TOKEN = import.meta.env.VITE_API_TOKEN || '';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {}),
       ...options?.headers,
     },
   });
@@ -90,5 +93,7 @@ export async function listEpisodes(): Promise<Episode[]> {
 }
 
 export function getAudioUrl(episodeId: string): string {
-  return `${BASE_URL}/api/episodes/${episodeId}/audio`;
+  // <audio> elements cannot send headers, so the token rides as a query param
+  const suffix = API_TOKEN ? `?token=${encodeURIComponent(API_TOKEN)}` : '';
+  return `${BASE_URL}/api/episodes/${episodeId}/audio${suffix}`;
 }

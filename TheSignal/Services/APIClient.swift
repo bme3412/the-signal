@@ -33,8 +33,10 @@ actor APIClient {
 
     static let defaultBaseURL = "http://localhost:8000"
     static let baseURLDefaultsKey = "backendBaseURL"
+    static let apiTokenDefaultsKey = "backendAPIToken"
 
     private var baseURL: String
+    private var apiToken: String
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -44,6 +46,7 @@ actor APIClient {
     private init() {
         baseURL = UserDefaults.standard.string(forKey: Self.baseURLDefaultsKey)
             ?? Self.defaultBaseURL
+        apiToken = UserDefaults.standard.string(forKey: Self.apiTokenDefaultsKey) ?? ""
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 300
@@ -73,6 +76,17 @@ actor APIClient {
     func setBaseURL(_ url: String) {
         baseURL = url
         UserDefaults.standard.set(url, forKey: Self.baseURLDefaultsKey)
+    }
+
+    func setAPIToken(_ token: String) {
+        apiToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        UserDefaults.standard.set(apiToken, forKey: Self.apiTokenDefaultsKey)
+    }
+
+    private func authorize(_ request: inout URLRequest) {
+        if !apiToken.isEmpty {
+            request.setValue("Bearer \(apiToken)", forHTTPHeaderField: "Authorization")
+        }
     }
 
     func checkHealth() async throws -> HealthResponse {
@@ -129,7 +143,9 @@ actor APIClient {
         guard let path = chapter.audioURL, let url = URL(string: "\(baseURL)\(path)") else {
             throw APIError.invalidURL
         }
-        let (tempURL, response) = try await session.download(from: url)
+        var dreq = URLRequest(url: url)
+        authorize(&dreq)
+        let (tempURL, response) = try await session.download(for: dreq)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw APIError.badStatus(
@@ -154,7 +170,9 @@ actor APIClient {
 
     func downloadAudio(episodeId: String) async throws -> URL {
         let url = URL(string: "\(baseURL)/api/episodes/\(episodeId)/audio")!
-        let (tempURL, response) = try await session.download(from: url)
+        var dreq = URLRequest(url: url)
+        authorize(&dreq)
+        let (tempURL, response) = try await session.download(for: dreq)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw APIError.badStatus(
@@ -202,6 +220,7 @@ actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        authorize(&req)
 
         if let body {
             req.httpBody = try encoder.encode(body)

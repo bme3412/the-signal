@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: signal-backend
+    runtime: docker
+    rootDir: signal-backend
+    plan: starter # persistent disks require a paid instance
+    healthCheckPath: /health
+    disk:
+      name: signal-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: STORAGE_PATH
+        value: /app/data
+      - key: SIGNAL_API_TOKEN
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false # set in the Render dashboard
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false

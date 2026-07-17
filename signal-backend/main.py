@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import secrets
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import get_settings
@@ -40,6 +42,26 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
+
+
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    """Protect the API and media files when SIGNAL_API_TOKEN is configured.
+
+    Accepts `Authorization: Bearer <token>` or `?token=` (for <audio> tags,
+    which cannot send headers). /health stays open.
+    """
+    token = get_settings().signal_api_token
+    path = request.url.path
+    if token and (path.startswith("/api") or path.startswith("/data")):
+        auth = request.headers.get("authorization", "")
+        provided = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        provided = provided or request.query_params.get("token") or ""
+        if not secrets.compare_digest(provided, token):
+            return JSONResponse(
+                {"detail": "Invalid or missing API token"}, status_code=401
+            )
+    return await call_next(request)
 
 app.include_router(articles.router)
 app.include_router(episodes.router)
