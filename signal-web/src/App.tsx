@@ -15,6 +15,7 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [playingEpisode, setPlayingEpisode] = useState<Episode | null>(null);
   const [backendDown, setBackendDown] = useState(false);
+  const [episodeFocus, setEpisodeFocus] = useState('');
 
   const loadArticles = useCallback(async () => {
     try {
@@ -168,6 +169,7 @@ function App() {
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onRefresh={loadArticles}
+              onFocusSuggested={setEpisodeFocus}
             />
           )}
 
@@ -177,6 +179,8 @@ function App() {
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onEditSelection={() => setActiveTab('queue')}
+              focus={episodeFocus}
+              onFocusChange={setEpisodeFocus}
               onEpisodeReady={handleEpisodeReady}
             />
           )}

@@ -167,6 +167,7 @@ export interface PipelineMetrics {
 export interface Episode {
   id: string;
   title: string | null;
+  focus: string | null;
   status: EpisodeStatus;
   style: StyleConfig;
   article_ids: string[];
@@ -182,6 +183,7 @@ export interface Episode {
 export interface EpisodeRequest {
   article_ids: string[];
   style: StyleConfig;
+  focus?: string;
   voice_mapping?: Record<string, string>;
   voice_config?: Record<string, SpeakerConfig>;
   audio_config: AudioProductionConfig;

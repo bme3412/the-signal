@@ -10,9 +10,10 @@ interface Props {
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onRefresh: () => void;
+  onFocusSuggested: (focus: string) => void;
 }
 
-export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh }: Props) {
+export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh, onFocusSuggested }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [addMode, setAddMode] = useState<'url' | 'manual'>('url');
@@ -179,7 +180,11 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
       )}
 
       {showDiscover && (
-        <DiscoverModal onClose={() => setShowDiscover(false)} onAdded={onRefresh} />
+        <DiscoverModal
+          onClose={() => setShowDiscover(false)}
+          onAdded={onRefresh}
+          onFocusSuggested={onFocusSuggested}
+        />
       )}
 
       {/* Add Article Modal */}

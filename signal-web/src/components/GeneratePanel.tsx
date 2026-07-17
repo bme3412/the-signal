@@ -11,6 +11,8 @@ interface Props {
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onEditSelection: () => void;
+  focus: string;
+  onFocusChange: (focus: string) => void;
   onEpisodeReady: (episode: Episode) => void;
 }
 
@@ -22,7 +24,7 @@ const statusSteps: { status: EpisodeStatus; label: string }[] = [
   { status: 'ready', label: 'Ready' },
 ];
 
-export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSelection, onEpisodeReady }: Props) {
+export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSelection, focus, onFocusChange, onEpisodeReady }: Props) {
   const [style, setStyle] = useState<StyleConfig>(defaultStyleConfig);
   const [targetMinutes, setTargetMinutes] = useState(20);
   const [voiceConfig, setVoiceConfig] = useState<Record<string, SpeakerConfig>>({});
@@ -81,6 +83,7 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
       const episode = await api.generateEpisode({
         article_ids: selectedArticles.map((a) => a.id),
         style,
+        focus: focus.trim() || undefined,
         voice_config: Object.keys(voiceConfig).length > 0 ? voiceConfig : undefined,
         audio_config: audioConfig,
         target_minutes: targetMinutes,
@@ -145,6 +148,31 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
             </li>
           ))}
         </ul>
+        {/* Direction: free text, pre-filled when an angle was chosen in Discover */}
+        <div className="border-t border-(--color-border) pt-3 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-(--color-text-secondary) shrink-0">
+              Direction
+            </span>
+            <input
+              type="text"
+              value={focus}
+              onChange={(e) => onFocusChange(e.target.value)}
+              placeholder="Optional: what should this episode be about?"
+              maxLength={300}
+              className="flex-1 px-3 py-1.5 text-sm bg-(--color-background) border border-(--color-border) rounded-lg focus:outline-none focus:border-(--color-accent)"
+            />
+            {focus && (
+              <button
+                onClick={() => onFocusChange('')}
+                title="Clear direction"
+                className="text-(--color-text-muted) hover:text-(--color-accent) transition px-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex items-center justify-between text-sm border-t border-(--color-border) pt-3">
           <span className="text-(--color-text-secondary)">~{targetMinutes} min episode</span>
           <span className="font-mono text-xs text-(--color-text-muted)">

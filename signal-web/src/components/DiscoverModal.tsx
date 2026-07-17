@@ -5,6 +5,7 @@ import * as api from '../api';
 interface Props {
   onClose: () => void;
   onAdded: () => void;
+  onFocusSuggested: (focus: string) => void;
 }
 
 const recencyOptions = [
@@ -16,7 +17,7 @@ const recencyOptions = [
 
 type AddState = 'adding' | 'added' | { error: string };
 
-export function DiscoverModal({ onClose, onAdded }: Props) {
+export function DiscoverModal({ onClose, onAdded, onFocusSuggested }: Props) {
   const [topic, setTopic] = useState('');
   const [searchedTopic, setSearchedTopic] = useState('');
   const [recency, setRecency] = useState('week');
@@ -64,6 +65,8 @@ export function DiscoverModal({ onClose, onAdded }: Props) {
 
   const applyAngle = (angle: EpisodeAngle) => {
     setSelected(new Set(angleUrls(angle)));
+    // Carry the chosen direction into Compose, where it steers the script.
+    onFocusSuggested(angle.description ? `${angle.title} — ${angle.description}` : angle.title);
   };
 
   const isAngleActive = (angle: EpisodeAngle) => {

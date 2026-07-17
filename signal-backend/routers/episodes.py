@@ -49,6 +49,7 @@ async def generate_episode(
     episode = Episode(
         article_ids=body.article_ids,
         style=body.style,
+        focus=body.focus,
         status=EpisodeStatus.queued,
     )
     store.create_episode(episode)
@@ -58,6 +59,7 @@ async def generate_episode(
         episode_id=episode.id,
         articles=articles,
         style=body.style,
+        focus=body.focus,
         voice_mapping=body.voice_mapping,
         voice_config=body.voice_config,
         audio_config=body.audio_config,

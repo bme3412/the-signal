@@ -41,6 +41,7 @@ async def generate_script(
     target_minutes: int,
     settings: Settings,
     kb_context: str | None = None,
+    focus: str | None = None,
 ) -> tuple[str, dict]:
     target_words = target_minutes * 150
     system = build_system_prompt(style, target_words=target_words)
@@ -56,6 +57,12 @@ async def generate_script(
         "Write a podcast script covering these articles:\n\n"
         + "\n\n".join(article_blocks)
     )
+    if focus:
+        user_msg += (
+            f'\n\nEPISODE DIRECTION: Frame the entire episode around: "{focus}". '
+            "The title, cold open, and chapter structure should all serve this "
+            "direction; give articles that don't serve it only brief treatment."
+        )
     if kb_context:
         user_msg += "\n\n" + kb_context
 

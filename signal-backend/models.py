@@ -217,6 +217,7 @@ class PipelineMetrics(BaseModel):
 class Episode(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     title: str | None = None
+    focus: str | None = None  # editorial direction the script was steered by
     status: EpisodeStatus = EpisodeStatus.queued
     style: StyleConfig = Field(default_factory=StyleConfig)
     article_ids: list[str] = Field(default_factory=list)
@@ -254,6 +255,7 @@ class EpisodeManifest(BaseModel):
 class EpisodeRequest(BaseModel):
     article_ids: list[str] = Field(..., min_length=1, max_length=10)
     style: StyleConfig = Field(default_factory=StyleConfig)
+    focus: str | None = Field(None, max_length=300)
     voice_mapping: dict[str, str] | None = None  # Legacy: simple voice ID mapping
     voice_config: dict[str, SpeakerConfig] | None = None  # New: full voice configuration
     audio_config: AudioProductionConfig = Field(default_factory=AudioProductionConfig)

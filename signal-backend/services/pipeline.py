@@ -30,6 +30,7 @@ async def run_pipeline(
     episode_id: str,
     articles: list[Article],
     style: StyleConfig,
+    focus: str | None,
     voice_mapping: dict[str, str] | None,
     voice_config: dict[str, SpeakerConfig] | None,
     audio_config: AudioProductionConfig,
@@ -59,7 +60,8 @@ async def run_pipeline(
         t0 = time.time()
         kb_context = kb_svc.gather_context(articles, store)
         script_text, token_info = await script_svc.generate_script(
-            articles, style, target_minutes, settings, kb_context=kb_context
+            articles, style, target_minutes, settings,
+            kb_context=kb_context, focus=focus,
         )
         title, script_text = script_svc.extract_title(script_text)
         if not title and articles:
