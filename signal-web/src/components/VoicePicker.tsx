@@ -64,8 +64,8 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
 
   if (voices.length === 0) {
     return (
-      <div className="bg-[--color-surface] rounded-xl p-4 border border-[--color-border]">
-        <div className="flex items-center gap-2 text-[--color-text-muted]">
+      <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border)">
+        <div className="flex items-center gap-2 text-(--color-text-muted)">
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
           <span>Loading voices...</span>
         </div>
@@ -74,7 +74,7 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
   }
 
   return (
-    <div className="bg-[--color-surface] rounded-xl p-4 border border-[--color-border] space-y-4">
+    <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border) space-y-4">
       <h4 className="font-medium">Voice Selection</h4>
 
       {speakers.map((speaker) => {
@@ -92,8 +92,8 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
                 onClick={() => setExpandedSpeaker(isExpanded ? null : speaker)}
                 className={`text-xs px-2 py-1 rounded transition ${
                   isExpanded
-                    ? 'bg-[--color-accent-blue]/20 text-[--color-accent-blue]'
-                    : 'text-[--color-text-muted] hover:text-[--color-text-secondary]'
+                    ? 'bg-(--color-accent)/20 text-(--color-accent)'
+                    : 'text-(--color-text-muted) hover:text-(--color-text-secondary)'
                 }`}
               >
                 ⚙ Settings
@@ -110,8 +110,8 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
                     onClick={() => updateConfig(speaker, { voice_id: voice.id })}
                     className={`px-3 py-1.5 rounded-full text-sm transition border capitalize ${
                       isSelected
-                        ? 'bg-[--color-accent-blue]/20 border-[--color-accent-blue] text-[--color-accent-blue]'
-                        : 'bg-transparent border-[--color-border] text-[--color-text-secondary] hover:border-[--color-text-muted]'
+                        ? 'bg-(--color-accent)/20 border-(--color-accent) text-(--color-accent)'
+                        : 'bg-transparent border-(--color-border) text-(--color-text-secondary) hover:border-(--color-text-muted)'
                     }`}
                   >
                     {voice.name}
@@ -122,10 +122,10 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
 
             {/* Voice settings */}
             {isExpanded && (
-              <div className="mt-3 pt-3 border-t border-[--color-border] space-y-3">
+              <div className="mt-3 pt-3 border-t border-(--color-border) space-y-3">
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-[--color-text-muted]">Stability</span>
+                    <span className="text-(--color-text-muted)">Stability</span>
                     <span className="font-mono">{Math.round(config.settings.stability * 100)}%</span>
                   </div>
                   <input
@@ -136,12 +136,12 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
                     value={config.settings.stability}
                     onChange={(e) => updateSettings(speaker, 'stability', Number(e.target.value))}
                   />
-                  <p className="text-xs text-[--color-text-muted] mt-0.5">Higher = more consistent</p>
+                  <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = more consistent</p>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-[--color-text-muted]">Clarity</span>
+                    <span className="text-(--color-text-muted)">Clarity</span>
                     <span className="font-mono">{Math.round(config.settings.similarity_boost * 100)}%</span>
                   </div>
                   <input
@@ -152,12 +152,12 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
                     value={config.settings.similarity_boost}
                     onChange={(e) => updateSettings(speaker, 'similarity_boost', Number(e.target.value))}
                   />
-                  <p className="text-xs text-[--color-text-muted] mt-0.5">Higher = clearer voice</p>
+                  <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = clearer voice</p>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-[--color-text-muted]">Style</span>
+                    <span className="text-(--color-text-muted)">Style</span>
                     <span className="font-mono">{Math.round(config.settings.style * 100)}%</span>
                   </div>
                   <input
@@ -168,7 +168,7 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
                     value={config.settings.style}
                     onChange={(e) => updateSettings(speaker, 'style', Number(e.target.value))}
                   />
-                  <p className="text-xs text-[--color-text-muted] mt-0.5">Higher = more expressive</p>
+                  <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = more expressive</p>
                 </div>
               </div>
             )}

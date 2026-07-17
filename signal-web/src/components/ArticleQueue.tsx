@@ -52,20 +52,27 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Article Queue</h2>
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-semibold">The queue</h2>
+          <p className="text-sm text-(--color-text-secondary) mt-1">
+            Save articles here, then select the ones for your next episode.
+          </p>
+        </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-[--color-accent-blue] text-white rounded-lg font-medium hover:opacity-90 transition"
+          className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition shrink-0"
         >
-          + Add Article
+          + Add article
         </button>
       </div>
 
       {articles.length === 0 ? (
-        <div className="text-center py-12 text-[--color-text-muted]">
-          <p>No articles in queue.</p>
-          <p className="text-sm mt-2">Add articles to generate a podcast episode.</p>
+        <div className="rise text-center py-16 px-6 bg-(--color-surface) border border-(--color-border) rounded-2xl">
+          <p className="font-display text-2xl italic mb-2">Nothing in the queue.</p>
+          <p className="text-(--color-text-secondary)">
+            Add an article by URL or paste text — it becomes tomorrow's episode.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -74,8 +81,8 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
               key={article.id}
               className={`p-4 rounded-xl border transition cursor-pointer ${
                 selectedIds.has(article.id)
-                  ? 'bg-[--color-accent-blue]/10 border-[--color-accent-blue]'
-                  : 'bg-[--color-surface] border-[--color-border] hover:border-[--color-text-muted]'
+                  ? 'bg-(--color-accent)/10 border-(--color-accent)'
+                  : 'bg-(--color-surface) border-(--color-border) hover:border-(--color-text-muted)'
               }`}
               onClick={() => onToggleSelect(article.id)}
             >
@@ -84,12 +91,12 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
                   type="checkbox"
                   checked={selectedIds.has(article.id)}
                   onChange={() => onToggleSelect(article.id)}
-                  className="mt-1 w-4 h-4 accent-[--color-accent-blue]"
+                  className="mt-1 w-4 h-4 accent-(--color-accent)"
                   onClick={(e) => e.stopPropagation()}
                 />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium truncate">{article.title}</h3>
-                  <div className="flex items-center gap-3 mt-1 text-sm text-[--color-text-muted]">
+                  <div className="flex items-center gap-3 mt-1 text-sm text-(--color-text-muted)">
                     <span>{article.source}</span>
                     <span>•</span>
                     <span>{article.word_count.toLocaleString()} words</span>
@@ -100,7 +107,7 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
                     e.stopPropagation();
                     handleDelete(article.id);
                   }}
-                  className="p-2 text-[--color-text-muted] hover:text-red-500 transition"
+                  className="p-2 text-(--color-text-muted) hover:text-red-500 transition"
                 >
                   ✕
                 </button>
@@ -113,16 +120,16 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
       {/* Add Article Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[--color-surface] rounded-2xl p-6 w-full max-w-lg border border-[--color-border]">
-            <h3 className="text-lg font-semibold mb-4">Add Article</h3>
+          <div className="bg-(--color-surface) rounded-2xl p-6 w-full max-w-lg border border-(--color-border)">
+            <h3 className="font-display text-xl font-semibold mb-4">Add article</h3>
 
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setAddMode('url')}
                 className={`px-4 py-2 rounded-lg font-medium transition ${
                   addMode === 'url'
-                    ? 'bg-[--color-accent-blue] text-white'
-                    : 'bg-[--color-background] text-[--color-text-secondary]'
+                    ? 'bg-(--color-accent) text-white'
+                    : 'bg-(--color-background) text-(--color-text-secondary)'
                 }`}
               >
                 From URL
@@ -131,8 +138,8 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
                 onClick={() => setAddMode('manual')}
                 className={`px-4 py-2 rounded-lg font-medium transition ${
                   addMode === 'manual'
-                    ? 'bg-[--color-accent-blue] text-white'
-                    : 'bg-[--color-background] text-[--color-text-secondary]'
+                    ? 'bg-(--color-accent) text-white'
+                    : 'bg-(--color-background) text-(--color-text-secondary)'
                 }`}
               >
                 Manual Entry
@@ -146,7 +153,7 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://example.com/article"
-                  className="w-full px-4 py-3 bg-[--color-background] border border-[--color-border] rounded-lg focus:outline-none focus:border-[--color-accent-blue]"
+                  className="w-full px-4 py-3 bg-(--color-background) border border-(--color-border) rounded-lg focus:outline-none focus:border-(--color-accent)"
                   required
                 />
               ) : (
@@ -156,7 +163,7 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Article title"
-                    className="w-full px-4 py-3 bg-[--color-background] border border-[--color-border] rounded-lg focus:outline-none focus:border-[--color-accent-blue]"
+                    className="w-full px-4 py-3 bg-(--color-background) border border-(--color-border) rounded-lg focus:outline-none focus:border-(--color-accent)"
                     required
                   />
                   <textarea
@@ -164,26 +171,26 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Paste article content..."
                     rows={6}
-                    className="w-full px-4 py-3 bg-[--color-background] border border-[--color-border] rounded-lg focus:outline-none focus:border-[--color-accent-blue] resize-none"
+                    className="w-full px-4 py-3 bg-(--color-background) border border-(--color-border) rounded-lg focus:outline-none focus:border-(--color-accent) resize-none"
                     required
                   />
                 </>
               )}
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && <p className="text-red-600 text-sm">{error}</p>}
 
               <div className="flex gap-3 justify-end">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-[--color-text-secondary] hover:text-[--color-text-primary] transition"
+                  className="px-4 py-2 text-(--color-text-secondary) hover:text-(--color-text-primary) transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-[--color-accent-blue] text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50"
+                  className="px-6 py-2 bg-(--color-accent) text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50"
                 >
                   {loading ? 'Adding...' : 'Add'}
                 </button>

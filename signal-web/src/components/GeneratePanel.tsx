@@ -9,6 +9,8 @@ import * as api from '../api';
 interface Props {
   articles: Article[];
   selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onEditSelection: () => void;
   onEpisodeReady: (episode: Episode) => void;
 }
 
@@ -20,7 +22,7 @@ const statusSteps: { status: EpisodeStatus; label: string }[] = [
   { status: 'ready', label: 'Ready' },
 ];
 
-export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) {
+export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSelection, onEpisodeReady }: Props) {
   const [style, setStyle] = useState<StyleConfig>(defaultStyleConfig);
   const [targetMinutes, setTargetMinutes] = useState(20);
   const [voiceConfig, setVoiceConfig] = useState<Record<string, SpeakerConfig>>({});
@@ -96,17 +98,59 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
     return idx === -1 ? 0 : idx;
   };
 
+  if (selectedArticles.length === 0) {
+    return (
+      <div className="rise text-center py-16 px-6 bg-(--color-surface) border border-(--color-border) rounded-2xl">
+        <p className="font-display text-2xl italic mb-2">Nothing selected yet.</p>
+        <p className="text-(--color-text-secondary) mb-6">
+          Pick the stories you want in this episode from the queue first.
+        </p>
+        <button
+          onClick={onEditSelection}
+          className="px-5 py-2.5 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
+        >
+          ← Back to the queue
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Summary card */}
-      <div className="bg-[--color-surface] rounded-xl p-4 border border-[--color-border]">
+      {/* Selection summary */}
+      <div className="rise bg-(--color-surface) rounded-2xl p-5 border border-(--color-border)">
         <div className="flex items-center justify-between mb-3">
-          <span className="font-medium">{selectedArticles.length} articles selected</span>
-          <span className="text-sm text-[--color-text-muted] font-mono">{totalWords.toLocaleString()} words</span>
+          <h2 className="font-display text-xl font-semibold">In this episode</h2>
+          <button
+            onClick={onEditSelection}
+            className="text-sm text-(--color-accent) hover:underline underline-offset-2"
+          >
+            Edit selection
+          </button>
         </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-[--color-text-secondary]">~{targetMinutes} min episode</span>
-          <span className="text-[--color-text-muted] font-mono">~${estimatedCost.toFixed(2)} estimated</span>
+        <ul className="space-y-1.5 mb-4">
+          {selectedArticles.map((a) => (
+            <li key={a.id} className="flex items-center gap-2 text-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-(--color-accent) shrink-0" />
+              <span className="truncate">{a.title}</span>
+              <span className="font-mono text-[11px] text-(--color-text-muted) shrink-0">
+                {a.source}
+              </span>
+              <button
+                onClick={() => onToggleSelect(a.id)}
+                title="Remove from episode"
+                className="ml-auto shrink-0 text-(--color-text-muted) hover:text-(--color-accent) transition px-1"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center justify-between text-sm border-t border-(--color-border) pt-3">
+          <span className="text-(--color-text-secondary)">~{targetMinutes} min episode</span>
+          <span className="font-mono text-xs text-(--color-text-muted)">
+            {totalWords.toLocaleString()} words · ~${estimatedCost.toFixed(2)}
+          </span>
         </div>
       </div>
 
@@ -119,13 +163,13 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
       />
 
       {/* Collapsible voice settings */}
-      <div className="bg-[--color-surface] rounded-xl border border-[--color-border] overflow-hidden">
+      <div className="bg-(--color-surface) rounded-xl border border-(--color-border) overflow-hidden">
         <button
           onClick={() => setShowVoices(!showVoices)}
           className="w-full p-4 flex items-center justify-between"
         >
           <span className="font-medium">Voices</span>
-          <span className="text-[--color-text-muted]">{showVoices ? '▲' : '▼'}</span>
+          <span className="text-(--color-text-muted)">{showVoices ? '▲' : '▼'}</span>
         </button>
         {showVoices && (
           <div className="px-4 pb-4">
@@ -135,13 +179,13 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
       </div>
 
       {/* Collapsible audio settings */}
-      <div className="bg-[--color-surface] rounded-xl border border-[--color-border] overflow-hidden">
+      <div className="bg-(--color-surface) rounded-xl border border-(--color-border) overflow-hidden">
         <button
           onClick={() => setShowAudio(!showAudio)}
           className="w-full p-4 flex items-center justify-between"
         >
           <span className="font-medium">Audio Production</span>
-          <span className="text-[--color-text-muted]">{showAudio ? '▲' : '▼'}</span>
+          <span className="text-(--color-text-muted)">{showAudio ? '▲' : '▼'}</span>
         </button>
         {showAudio && (
           <div className="px-4 pb-4">
@@ -152,10 +196,10 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
 
       {/* Progress card */}
       {currentEpisode && generating && (
-        <div className="bg-[--color-surface] rounded-xl p-4 border border-[--color-border]">
+        <div className="bg-(--color-surface) rounded-xl p-4 border border-(--color-border)">
           <div className="flex items-center justify-between mb-4">
             <span className="font-medium">Pipeline</span>
-            <div className="w-4 h-4 border-2 border-[--color-accent-blue] border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-(--color-accent) border-t-transparent rounded-full animate-spin" />
           </div>
           <div className="space-y-2">
             {statusSteps.map((step, i) => {
@@ -170,8 +214,8 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
                       isComplete
                         ? 'bg-green-500 text-white'
                         : isCurrent
-                        ? 'bg-[--color-accent-blue] text-white'
-                        : 'bg-[--color-border] text-[--color-text-muted]'
+                        ? 'bg-(--color-accent) text-white'
+                        : 'bg-(--color-border) text-(--color-text-muted)'
                     }`}
                   >
                     {isComplete ? '✓' : i + 1}
@@ -179,10 +223,10 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
                   <span
                     className={
                       isCurrent
-                        ? 'text-[--color-text-primary]'
+                        ? 'text-(--color-text-primary)'
                         : isComplete
-                        ? 'text-[--color-text-secondary]'
-                        : 'text-[--color-text-muted]'
+                        ? 'text-(--color-text-secondary)'
+                        : 'text-(--color-text-muted)'
                     }
                   >
                     {step.label}
@@ -196,12 +240,12 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
 
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-red-400 font-medium mb-1">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
             <span>⚠</span>
             <span>Generation Failed</span>
           </div>
-          <p className="text-sm text-red-300">{error}</p>
+          <p className="text-sm text-red-600">{error}</p>
           <button
             onClick={handleGenerate}
             className="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition"
@@ -215,7 +259,7 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
       <button
         onClick={handleGenerate}
         disabled={selectedArticles.length === 0 || generating}
-        className="w-full py-4 bg-[--color-accent-blue] text-white rounded-xl font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full py-4 bg-(--color-accent) text-white rounded-xl font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {generating ? (
           <>
@@ -223,10 +267,7 @@ export function GeneratePanel({ articles, selectedIds, onEpisodeReady }: Props) 
             <span>Generating...</span>
           </>
         ) : (
-          <>
-            <span>✨</span>
-            <span>Generate Episode</span>
-          </>
+          <span>Generate episode</span>
         )}
       </button>
     </div>

@@ -9,13 +9,13 @@ interface Props {
 }
 
 const statusConfig: Record<EpisodeStatus, { label: string; color: string; icon: string }> = {
-  queued: { label: 'Queued', color: '#6b7280', icon: '⏳' },
-  summarizing: { label: 'Summarizing', color: '#0a84ff', icon: '📝' },
-  scripting: { label: 'Writing Script', color: '#0a84ff', icon: '✍️' },
-  synthesizing: { label: 'Generating Audio', color: '#bf5af2', icon: '🔊' },
-  mixing: { label: 'Mixing', color: '#bf5af2', icon: '🎛️' },
-  ready: { label: 'Ready', color: '#34c759', icon: '✅' },
-  failed: { label: 'Failed', color: '#ff3b30', icon: '❌' },
+  queued: { label: 'Queued', color: '#8a8271', icon: '…' },
+  summarizing: { label: 'Summarizing', color: '#1d5c8f', icon: '✎' },
+  scripting: { label: 'Writing script', color: '#1d5c8f', icon: '✎' },
+  synthesizing: { label: 'Generating audio', color: '#6b4bad', icon: '♫' },
+  mixing: { label: 'Mixing', color: '#6b4bad', icon: '♫' },
+  ready: { label: 'Ready', color: '#1a7f37', icon: '✓' },
+  failed: { label: 'Failed', color: '#b3261e', icon: '✕' },
 };
 
 export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
@@ -40,20 +40,27 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Episodes</h2>
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-semibold">Your episodes</h2>
+          <p className="text-sm text-(--color-text-secondary) mt-1">
+            Tap an episode to listen, or read its transcript.
+          </p>
+        </div>
         <button
           onClick={onRefresh}
-          className="px-3 py-1.5 text-[--color-text-secondary] hover:text-[--color-text-primary] transition text-sm"
+          className="px-3 py-1.5 text-(--color-text-secondary) hover:text-(--color-text-primary) transition text-sm shrink-0"
         >
           ↻ Refresh
         </button>
       </div>
 
       {episodes.length === 0 ? (
-        <div className="text-center py-12 text-[--color-text-muted]">
-          <p>No episodes yet.</p>
-          <p className="text-sm mt-2">Generate your first episode from the Queue tab.</p>
+        <div className="rise text-center py-16 px-6 bg-(--color-surface) border border-(--color-border) rounded-2xl">
+          <p className="font-display text-2xl italic mb-2">No episodes yet.</p>
+          <p className="text-(--color-text-secondary)">
+            Queue some articles and compose your first one.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -68,8 +75,8 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
                 role="button"
                 className={`w-full p-4 rounded-xl border text-left transition ${
                   isPlayable
-                    ? 'bg-[--color-surface] border-[--color-border] hover:border-[--color-accent-blue] cursor-pointer'
-                    : 'bg-[--color-surface]/50 border-[--color-border] cursor-default'
+                    ? 'bg-(--color-surface) border-(--color-border) hover:border-(--color-accent) cursor-pointer'
+                    : 'bg-(--color-surface)/50 border-(--color-border) cursor-default'
                 }`}
               >
                 <div className="flex items-center gap-4">
@@ -77,8 +84,8 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
                       isPlayable
-                        ? 'bg-[--color-accent-blue]/20 text-[--color-accent-blue]'
-                        : 'bg-[--color-border]/50'
+                        ? 'bg-(--color-accent)/20 text-(--color-accent)'
+                        : 'bg-(--color-border)/50'
                     }`}
                   >
                     {isPlayable ? '▶' : status.icon}
@@ -98,7 +105,7 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-[--color-text-muted]">
+                    <div className="flex items-center gap-3 mt-1 text-sm text-(--color-text-muted)">
                       <span>{formatDate(episode.created_at)}</span>
                       {episode.audio_duration_seconds && (
                         <>
@@ -123,16 +130,16 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
                         setTranscriptEpisode(episode);
                       }}
                       title="View transcript"
-                      className="px-3 py-1.5 rounded-lg text-sm bg-[--color-background] border border-[--color-border] text-[--color-text-secondary] hover:text-[--color-text-primary] hover:border-[--color-accent-blue] transition shrink-0"
+                      className="px-3 py-1.5 rounded-full text-sm bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:text-(--color-text-primary) hover:border-(--color-accent) transition shrink-0"
                     >
-                      📄 Transcript
+                      Transcript
                     </button>
                   )}
                 </div>
 
                 {/* Error message */}
                 {episode.status === 'failed' && episode.error && (
-                  <p className="mt-2 text-sm text-red-400 truncate">{episode.error}</p>
+                  <p className="mt-2 text-sm text-red-600 truncate">{episode.error}</p>
                 )}
               </div>
             );

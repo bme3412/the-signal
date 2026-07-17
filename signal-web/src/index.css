@@ -1,40 +1,92 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #09090b;
-  --color-surface: #111113;
-  --color-border: #27272a;
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #52525b;
-  --color-accent-blue: #0a84ff;
-  --color-accent-purple: #bf5af2;
+  /* Editorial broadcast: warm paper, ink, one ember "on air" accent. */
+  --color-background: #f6f3ec;
+  --color-surface: #fffdf8;
+  --color-border: #e4ddcf;
+  --color-text-primary: #221d15;
+  --color-text-secondary: #5f584a;
+  --color-text-muted: #a49b87;
+  --color-accent: #c2452d;
+  --color-accent-alt: #2d6a5f;
+
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, "SF Mono", monospace;
 }
 
 body {
   margin: 0;
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Faint paper grain over everything */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+::selection {
+  background: rgba(194, 69, 45, 0.22);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Pulsing on-air dot in the masthead */
+@keyframes onair {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 69, 45, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(194, 69, 45, 0); }
+}
+
+.onair-dot {
+  animation: onair 2.4s ease-in-out infinite;
+}
+
+/* Staggered card entrance */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rise {
+  animation: rise 0.35s ease-out both;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-surface);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 4px;
+  border-radius: 5px;
+  border: 2px solid var(--color-background);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -58,9 +110,11 @@ input[type="range"]::-webkit-slider-track {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  background: var(--color-accent-blue);
+  background: var(--color-accent);
   height: 16px;
   width: 16px;
   border-radius: 50%;
   margin-top: -6px;
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 1px 3px rgba(34, 29, 21, 0.25);
 }

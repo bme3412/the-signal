@@ -30,7 +30,7 @@ function Segment({ segment }: { segment: ScriptSegment }) {
       >
         [{segment.speaker}]
       </span>
-      <p className="text-sm text-[--color-text-secondary] mt-1">{segment.text}</p>
+      <p className="text-sm text-(--color-text-secondary) mt-1">{segment.text}</p>
     </div>
   );
 }
@@ -52,19 +52,19 @@ export function TranscriptModal({ episode, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-[--color-surface] border border-[--color-border] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
+        className="bg-(--color-surface) border border-(--color-border) rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-[--color-border]">
+        <div className="flex items-center justify-between p-4 border-b border-(--color-border)">
           <div>
-            <h3 className="font-semibold">Transcript</h3>
-            <p className="text-xs text-[--color-text-muted] mt-0.5">
+            <h3 className="font-display text-xl font-semibold">Transcript</h3>
+            <p className="text-xs text-(--color-text-muted) mt-0.5">
               {script.word_count.toLocaleString()} words • ~{script.estimated_minutes.toFixed(1)} min
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-[--color-text-muted] hover:text-[--color-text-primary] transition text-xl leading-none"
+            className="text-(--color-text-muted) hover:text-(--color-text-primary) transition text-xl leading-none"
             aria-label="Close"
           >
             ✕
@@ -75,19 +75,19 @@ export function TranscriptModal({ episode, onClose }: Props) {
           {hasChapters
             ? script.chapters.map((chapter, ci) => (
                 <section key={ci} className="space-y-3">
-                  <div className="flex items-center gap-2 bg-[--color-background] rounded-lg px-3 py-2 sticky top-0">
+                  <div className="flex items-center gap-2 bg-(--color-background) rounded-lg px-3 py-2 sticky top-0">
                     <span className="text-sm font-semibold">{chapter.title}</span>
                     <span
                       className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
                         chapter.role === 'optional'
-                          ? 'bg-[--color-accent-purple]/20 text-[--color-accent-purple]'
-                          : 'bg-[--color-border] text-[--color-text-muted]'
+                          ? 'bg-(--color-accent-alt)/20 text-(--color-accent-alt)'
+                          : 'bg-(--color-border) text-(--color-text-muted)'
                       }`}
                     >
                       {roleLabels[chapter.role]}
                     </span>
                     {chapter.duration_seconds > 0 && (
-                      <span className="text-xs text-[--color-text-muted] ml-auto font-mono">
+                      <span className="text-xs text-(--color-text-muted) ml-auto font-mono">
                         {formatDuration(chapter.duration_seconds)}
                       </span>
                     )}
