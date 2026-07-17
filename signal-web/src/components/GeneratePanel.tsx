@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Article, Episode, StyleConfig, SpeakerConfig, AudioProductionConfig, VoiceInfo, EpisodeStatus } from '../types';
 import { defaultStyleConfig, defaultAudioConfig } from '../types';
 import { StylePicker } from './StylePicker';
@@ -34,6 +34,7 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
   const [generating, setGenerating] = useState(false);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
 
   const [showProduction, setShowProduction] = useState(false);
 
@@ -67,10 +68,15 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
       } catch (err) {
         console.error('Polling error:', err);
       }
-    }, 2000);
+    }, 1200);
 
     return () => clearInterval(interval);
   }, [currentEpisode, onEpisodeReady]);
+
+  // Auto-scroll the narration feed to the newest line
+  useEffect(() => {
+    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
+  }, [currentEpisode?.progress?.length]);
 
   const handleGenerate = async () => {
     if (selectedArticles.length === 0) return;
@@ -247,6 +253,30 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
               );
             })}
           </div>
+
+          {/* Live narration feed */}
+          {currentEpisode.progress && currentEpisode.progress.length > 0 && (
+            <div
+              ref={feedRef}
+              className="mt-4 pt-4 border-t border-(--color-border) max-h-44 overflow-y-auto font-mono text-xs space-y-1"
+            >
+              {currentEpisode.progress.slice(-40).map((event, i, arr) => {
+                const isLast = i === arr.length - 1;
+                return (
+                  <div
+                    key={`${event.at}-${i}`}
+                    className={isLast ? 'text-(--color-text-primary)' : 'text-(--color-text-muted)'}
+                  >
+                    <span className="text-(--color-accent) mr-1.5">
+                      {isLast ? '▸' : '·'}
+                    </span>
+                    {event.message}
+                    {isLast && <span className="ml-0.5 animate-pulse">▍</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

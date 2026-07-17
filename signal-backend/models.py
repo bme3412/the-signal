@@ -214,11 +214,18 @@ class PipelineMetrics(BaseModel):
 
 # --------------- Episode ---------------
 
+class ProgressEvent(BaseModel):
+    stage: EpisodeStatus
+    message: str
+    at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Episode(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     title: str | None = None
     focus: str | None = None  # editorial direction the script was steered by
     status: EpisodeStatus = EpisodeStatus.queued
+    progress: list[ProgressEvent] = Field(default_factory=list)
     style: StyleConfig = Field(default_factory=StyleConfig)
     article_ids: list[str] = Field(default_factory=list)
     script: EpisodeScript | None = None

@@ -4,7 +4,7 @@ import os
 import sqlite3
 import threading
 
-from models import Article, Episode, EpisodeStatus
+from models import Article, Episode, EpisodeStatus, ProgressEvent
 
 
 def _fts_quote(term: str) -> str:
@@ -194,3 +194,22 @@ class Store:
 
     def update_status(self, episode_id: str, status: EpisodeStatus) -> Episode | None:
         return self.update_episode(episode_id, status=status)
+
+    def add_progress(
+        self, episode_id: str, stage: EpisodeStatus, message: str
+    ) -> Episode | None:
+        """Append a human-readable progress line to an episode's live log."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT data FROM episodes WHERE id = ?", (episode_id,)
+            ).fetchone()
+            if not row:
+                return None
+            episode = Episode.model_validate_json(row["data"])
+            episode.progress.append(ProgressEvent(stage=stage, message=message))
+            with self._conn:
+                self._conn.execute(
+                    "UPDATE episodes SET data = ? WHERE id = ?",
+                    (episode.model_dump_json(), episode_id),
+                )
+        return episode

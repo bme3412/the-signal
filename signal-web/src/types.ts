@@ -164,11 +164,18 @@ export interface PipelineMetrics {
   estimated_cost_usd: number;
 }
 
+export interface ProgressEvent {
+  stage: EpisodeStatus;
+  message: string;
+  at: string;
+}
+
 export interface Episode {
   id: string;
   title: string | null;
   focus: string | null;
   status: EpisodeStatus;
+  progress?: ProgressEvent[];
   style: StyleConfig;
   article_ids: string[];
   script: EpisodeScript | null;

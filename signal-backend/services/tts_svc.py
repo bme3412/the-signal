@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import httpx
 import structlog
 
@@ -65,11 +67,14 @@ async def synthesize_script(
     voice_config: dict[str, SpeakerConfig] | None,
     tone: str,
     settings: Settings,
+    on_segment: Callable[[int, str], None] | None = None,
 ) -> list[bytes]:
     defaults = DEFAULT_VOICE_MAP.get(tone, DEFAULT_VOICE_MAP["casual"])
 
     audio_chunks: list[bytes] = []
     for i, seg in enumerate(segments):
+        if on_segment:
+            on_segment(i, seg.speaker)
         # Priority: voice_config > voice_mapping > defaults
         if voice_config and seg.speaker in voice_config:
             config = voice_config[seg.speaker]
