@@ -155,9 +155,12 @@ struct PlayerView: View {
 
     private var metadata: some View {
         VStack(spacing: 4) {
-            Text("Episode \(episode.id.prefix(8))")
+            Text(episode.displayTitle)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .padding(.horizontal, 24)
             Text(episode.createdAt, style: .date)
                 .font(.subheadline)
                 .foregroundStyle(Color.textSecondary)

@@ -25,10 +25,10 @@ export async function listArticles(): Promise<Article[]> {
   return request('/api/articles');
 }
 
-export async function submitArticleByUrl(url: string): Promise<Article> {
+export async function submitArticleByUrl(url: string, collection?: string): Promise<Article> {
   return request('/api/articles', {
     method: 'POST',
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, collection }),
   });
 }
 

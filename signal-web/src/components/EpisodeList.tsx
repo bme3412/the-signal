@@ -93,8 +93,8 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">
-                        Episode • {episode.article_ids.length} articles
+                      <span className="font-display font-semibold truncate">
+                        {episode.title || `Episode • ${episode.article_ids.length} articles`}
                       </span>
                       {!isPlayable && (
                         <span
@@ -106,6 +106,8 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-sm text-(--color-text-muted)">
+                      <span>{episode.article_ids.length} article{episode.article_ids.length === 1 ? '' : 's'}</span>
+                      <span>•</span>
                       <span>{formatDate(episode.created_at)}</span>
                       {episode.audio_duration_seconds && (
                         <>

@@ -61,6 +61,9 @@ async def run_pipeline(
         script_text, token_info = await script_svc.generate_script(
             articles, style, target_minutes, settings, kb_context=kb_context
         )
+        title, script_text = script_svc.extract_title(script_text)
+        if not title and articles:
+            title = articles[0].title
         segments, chapters = script_svc.parse_script(script_text)
         metrics.script_time_ms = _ms_since(t0)
         metrics.script_tokens_in = token_info["input_tokens"]
@@ -74,9 +77,10 @@ async def run_pipeline(
             word_count=word_count,
             estimated_minutes=round(word_count / 150, 1),
         )
-        store.update_episode(episode_id, script=episode_script, metrics=metrics)
+        store.update_episode(episode_id, title=title, script=episode_script, metrics=metrics)
         log.info(
             "pipeline.scripted",
+            title=title,
             words=word_count,
             segments=len(segments),
             chapters=len(chapters),

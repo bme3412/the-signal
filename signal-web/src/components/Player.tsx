@@ -109,7 +109,9 @@ export function Player({ episode, onClose }: Props) {
                 <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-accent)" strokeWidth="3" opacity="0.18" />
               </svg>
             </div>
-            <h3 className="font-display text-xl font-semibold">Episode</h3>
+            <h3 className="font-display text-xl font-semibold max-w-sm mx-auto">
+              {episode.title || 'Episode'}
+            </h3>
             <p className="text-(--color-text-muted) text-sm mt-1">
               {episode.article_ids.length} articles • {episode.script?.estimated_minutes.toFixed(1)} min
             </p>

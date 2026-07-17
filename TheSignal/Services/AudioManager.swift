@@ -311,9 +311,9 @@ final class AudioManager: NSObject {
     private func updateNowPlaying() {
         var info = [String: Any]()
         if let chapter = currentWalkChapter {
-            info[MPMediaItemPropertyTitle] = "The Signal — \(chapter.title)"
+            info[MPMediaItemPropertyTitle] = "\(currentEpisode?.title ?? "The Signal") — \(chapter.title)"
         } else {
-            info[MPMediaItemPropertyTitle] = currentEpisode.map { "The Signal — \($0.id.prefix(8))" } ?? "The Signal"
+            info[MPMediaItemPropertyTitle] = currentEpisode?.displayTitle ?? "The Signal"
         }
         info[MPMediaItemPropertyArtist] = "The Signal"
         info[MPMediaItemPropertyPlaybackDuration] = duration

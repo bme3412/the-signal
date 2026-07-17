@@ -57,7 +57,9 @@ export function TranscriptModal({ episode, onClose }: Props) {
       >
         <div className="flex items-center justify-between p-4 border-b border-(--color-border)">
           <div>
-            <h3 className="font-display text-xl font-semibold">Transcript</h3>
+            <h3 className="font-display text-xl font-semibold">
+              {episode.title || 'Transcript'}
+            </h3>
             <p className="text-xs text-(--color-text-muted) mt-0.5">
               {script.word_count.toLocaleString()} words • ~{script.estimated_minutes.toFixed(1)} min
             </p>

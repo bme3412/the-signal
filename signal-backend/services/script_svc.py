@@ -16,6 +16,23 @@ _CHAPTER_RE = re.compile(
     r"^#*\s*CHAPTER:\s*(.+?)\s*\[(intro|core|optional|closer)\]\s*$",
     re.IGNORECASE,
 )
+_TITLE_RE = re.compile(
+    r"^#*[ \t]*TITLE:[ \t]*(.*?)[ \t]*$", re.IGNORECASE | re.MULTILINE
+)
+
+
+def extract_title(text: str) -> tuple[str | None, str]:
+    """Pull the TITLE: line off the top of a script.
+
+    Only searches the first 500 characters so a stray mention mid-script
+    can't hijack the title. Returns (title or None, script without the line).
+    """
+    m = _TITLE_RE.search(text[:500])
+    if not m:
+        return None, text
+    title = m.group(1).strip().strip('"').strip()
+    cleaned = (text[: m.start()] + text[m.end():]).strip()
+    return (title or None), cleaned
 
 
 async def generate_script(

@@ -124,6 +124,7 @@ class Article(BaseModel):
     summary: str | None = None
     topics: list[str] = Field(default_factory=list)
     entities: list[str] = Field(default_factory=list)
+    collection: str | None = None  # e.g. the discovery topic that found it
     word_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -133,6 +134,7 @@ class ArticleCreate(BaseModel):
     title: str | None = None
     text: str | None = None
     source: str | None = None
+    collection: str | None = None
 
 
 class DiscoverRequest(BaseModel):
@@ -203,6 +205,7 @@ class PipelineMetrics(BaseModel):
 
 class Episode(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
+    title: str | None = None
     status: EpisodeStatus = EpisodeStatus.queued
     style: StyleConfig = Field(default_factory=StyleConfig)
     article_ids: list[str] = Field(default_factory=list)
@@ -231,6 +234,7 @@ class EpisodeManifest(BaseModel):
     end on the 'closer'."""
 
     episode_id: str
+    title: str | None = None
     status: EpisodeStatus
     total_duration_seconds: float
     chapters: list[ManifestChapter]

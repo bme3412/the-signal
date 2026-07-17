@@ -12,9 +12,10 @@ struct EpisodeRow: View {
                     .frame(width: 40, height: 40)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Episode \(episode.id.prefix(8))")
+                    Text(episode.displayTitle)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.textPrimary)
+                        .lineLimit(2)
 
                     HStack(spacing: 6) {
                         Label(episode.status.displayName, systemImage: episode.status.icon)

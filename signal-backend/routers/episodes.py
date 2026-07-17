@@ -116,6 +116,7 @@ async def get_episode_manifest(episode_id: str, request: Request):
     ]
     return EpisodeManifest(
         episode_id=episode.id,
+        title=episode.title,
         status=episode.status,
         total_duration_seconds=episode.audio_duration_seconds or 0.0,
         chapters=chapters,

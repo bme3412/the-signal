@@ -33,8 +33,7 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [showVoices, setShowVoices] = useState(false);
-  const [showAudio, setShowAudio] = useState(false);
+  const [showProduction, setShowProduction] = useState(false);
 
   const selectedArticles = articles.filter((a) => selectedIds.has(a.id));
   const totalWords = selectedArticles.reduce((sum, a) => sum + a.word_count, 0);
@@ -162,33 +161,18 @@ export function GeneratePanel({ articles, selectedIds, onToggleSelect, onEditSel
         onTargetMinutesChange={setTargetMinutes}
       />
 
-      {/* Collapsible voice settings */}
-      <div className="bg-(--color-surface) rounded-xl border border-(--color-border) overflow-hidden">
+      {/* Voices & production (collapsed by default) */}
+      <div className="bg-(--color-surface) rounded-2xl border border-(--color-border) overflow-hidden">
         <button
-          onClick={() => setShowVoices(!showVoices)}
-          className="w-full p-4 flex items-center justify-between"
+          onClick={() => setShowProduction(!showProduction)}
+          className="w-full p-4 flex items-center justify-between text-sm"
         >
-          <span className="font-medium">Voices</span>
-          <span className="text-(--color-text-muted)">{showVoices ? '▲' : '▼'}</span>
+          <span className="text-(--color-text-secondary)">Voices &amp; production</span>
+          <span className="text-(--color-text-muted)">{showProduction ? '▴' : '▾'}</span>
         </button>
-        {showVoices && (
-          <div className="px-4 pb-4">
+        {showProduction && (
+          <div className="px-4 pb-4 space-y-6">
             <VoicePicker tone={style.tone} voices={voices} voiceConfig={voiceConfig} onChange={setVoiceConfig} />
-          </div>
-        )}
-      </div>
-
-      {/* Collapsible audio settings */}
-      <div className="bg-(--color-surface) rounded-xl border border-(--color-border) overflow-hidden">
-        <button
-          onClick={() => setShowAudio(!showAudio)}
-          className="w-full p-4 flex items-center justify-between"
-        >
-          <span className="font-medium">Audio Production</span>
-          <span className="text-(--color-text-muted)">{showAudio ? '▲' : '▼'}</span>
-        </button>
-        {showAudio && (
-          <div className="px-4 pb-4">
             <AudioSettings config={audioConfig} onChange={setAudioConfig} />
           </div>
         )}

@@ -85,6 +85,7 @@ export interface Article {
   summary: string | null;
   topics: string[];
   entities: string[];
+  collection: string | null;
   word_count: number;
   created_at: string;
 }
@@ -139,6 +140,7 @@ export interface ManifestChapter {
 
 export interface EpisodeManifest {
   episode_id: string;
+  title: string | null;
   status: EpisodeStatus;
   total_duration_seconds: number;
   chapters: ManifestChapter[];
@@ -158,6 +160,7 @@ export interface PipelineMetrics {
 
 export interface Episode {
   id: string;
+  title: string | null;
   status: EpisodeStatus;
   style: StyleConfig;
   article_ids: string[];

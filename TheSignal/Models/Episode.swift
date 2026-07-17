@@ -129,6 +129,7 @@ struct PipelineMetrics: Codable {
 
 struct Episode: Codable, Identifiable {
     let id: String
+    let title: String?
     let status: EpisodeStatus
     let style: StyleConfig
     let articleIds: [String]
@@ -140,8 +141,12 @@ struct Episode: Codable, Identifiable {
     let createdAt: Date
     let completedAt: Date?
 
+    var displayTitle: String {
+        title ?? "Episode \(id.prefix(8))"
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, status, style, script, error
+        case id, title, status, style, script, error
         case articleIds = "article_ids"
         case audioURL = "audio_url"
         case audioDuration = "audio_duration_seconds"

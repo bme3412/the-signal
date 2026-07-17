@@ -115,6 +115,11 @@ def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
         "3. Segments — the substance, one per article or theme",
         "4. Closer — wrap with the chosen closer style",
         "",
+        "TITLE:",
+        "The very first line of your output must be:",
+        "TITLE: <a specific, catchy 4-9 word episode title drawn from the content>",
+        "Never generic ('News Roundup', 'Today's Episode') — name the actual story.",
+        "",
         "CHAPTERS:",
         "Divide the script into chapters. Before each chapter's dialogue, output a "
         "marker on its own line:",

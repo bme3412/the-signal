@@ -18,6 +18,7 @@ type AddState = 'adding' | 'added' | { error: string };
 
 export function DiscoverModal({ onClose, onAdded }: Props) {
   const [topic, setTopic] = useState('');
+  const [searchedTopic, setSearchedTopic] = useState('');
   const [recency, setRecency] = useState('week');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export function DiscoverModal({ onClose, onAdded }: Props) {
     setResults(null);
     setSelected(new Set());
     setAddStates({});
+    setSearchedTopic(topic.trim());
     try {
       setResults(await api.discoverArticles(topic, recency));
     } catch (err) {
@@ -60,7 +62,7 @@ export function DiscoverModal({ onClose, onAdded }: Props) {
       if (addStates[url] === 'added') continue;
       setAddStates((s) => ({ ...s, [url]: 'adding' }));
       try {
-        await api.submitArticleByUrl(url);
+        await api.submitArticleByUrl(url, searchedTopic);
         setAddStates((s) => ({ ...s, [url]: 'added' }));
         onAdded();
       } catch (err) {

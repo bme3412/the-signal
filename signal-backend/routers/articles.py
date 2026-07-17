@@ -50,6 +50,7 @@ async def create_article(
             source=body.source or extracted["source"],
             url=body.url,
             text=body.text or extracted["text"],
+            collection=body.collection,
             word_count=len((body.text or extracted["text"]).split()),
         )
     elif body.text:
@@ -57,6 +58,7 @@ async def create_article(
             title=body.title or "Untitled",
             source=body.source or "manual",
             text=body.text,
+            collection=body.collection,
             word_count=len(body.text.split()),
         )
     else:

@@ -54,7 +54,7 @@ struct EpisodeListView: View {
             }
             .sheet(item: $transcriptEpisode) { ep in
                 if let script = ep.script {
-                    TranscriptView(script: script, title: "Episode \(ep.id.prefix(8))")
+                    TranscriptView(script: script, title: ep.displayTitle)
                 }
             }
             .overlay {

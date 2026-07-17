@@ -81,13 +81,14 @@ extension ManifestChapter: PlannableChapter {}
 
 struct EpisodeManifest: Codable {
     let episodeId: String
+    let title: String?
     let status: EpisodeStatus
     let totalDurationSeconds: Double
     let chapters: [ManifestChapter]
 
     enum CodingKeys: String, CodingKey {
         case episodeId = "episode_id"
-        case status
+        case title, status
         case totalDurationSeconds = "total_duration_seconds"
         case chapters
     }
