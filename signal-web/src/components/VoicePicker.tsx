@@ -9,9 +9,10 @@ interface Props {
 }
 
 const defaultVoiceSettings: VoiceSettings = {
-  stability: 0.5,
+  stability: 0.4,
   similarity_boost: 0.75,
-  style: 0.4,
+  style: 0.5,
+  speed: 1.0,
   use_speaker_boost: true,
 };
 
@@ -169,6 +170,22 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
                     onChange={(e) => updateSettings(speaker, 'style', Number(e.target.value))}
                   />
                   <p className="text-xs text-(--color-text-muted) mt-0.5">Higher = more expressive</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-(--color-text-muted)">Pace</span>
+                    <span className="font-mono">{(config.settings.speed ?? 1).toFixed(2)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.7}
+                    max={1.2}
+                    step={0.05}
+                    value={config.settings.speed ?? 1}
+                    onChange={(e) => updateSettings(speaker, 'speed', Number(e.target.value))}
+                  />
+                  <p className="text-xs text-(--color-text-muted) mt-0.5">Conversational is ~1.0x</p>
                 </div>
               </div>
             )}

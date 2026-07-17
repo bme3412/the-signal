@@ -35,6 +35,7 @@ export interface VoiceSettings {
   stability: number;
   similarity_boost: number;
   style: number;
+  speed: number;
   use_speaker_boost: boolean;
 }
 
@@ -65,6 +66,7 @@ export interface AudioProductionConfig {
   fade_out_ms: number;
   normalize: boolean;
   target_dbfs: number;
+  intro_music: boolean;
 }
 
 export const defaultAudioConfig: AudioProductionConfig = {
@@ -73,6 +75,7 @@ export const defaultAudioConfig: AudioProductionConfig = {
   fade_out_ms: 0,
   normalize: false,
   target_dbfs: -16.0,
+  intro_music: false,
 };
 
 // Article

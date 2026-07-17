@@ -51,6 +51,7 @@ async def synthesize_segment(
             "stability": vs.stability,
             "similarity_boost": vs.similarity_boost,
             "style": vs.style,
+            "speed": vs.speed,
             "use_speaker_boost": vs.use_speaker_boost,
         },
     }
@@ -100,8 +101,9 @@ def get_voices_info() -> dict:
         "voices": [{"id": vid, "name": name} for name, vid in VOICES.items()],
         "defaults": DEFAULT_VOICE_MAP,
         "settings_ranges": {
-            "stability": {"min": 0.0, "max": 1.0, "default": 0.5},
+            "stability": {"min": 0.0, "max": 1.0, "default": 0.4},
             "similarity_boost": {"min": 0.0, "max": 1.0, "default": 0.75},
-            "style": {"min": 0.0, "max": 1.0, "default": 0.4},
+            "style": {"min": 0.0, "max": 1.0, "default": 0.5},
+            "speed": {"min": 0.7, "max": 1.2, "default": 1.0},
         },
     }

@@ -23,10 +23,20 @@ def _export_mp3(seg: "AudioSegment") -> bytes:
     return buf.getvalue()
 
 
+def _intro_bed(music: bytes, speech_lead_ms: int = 2500) -> "AudioSegment":
+    """Turn a music clip into an intro bed: it plays, then fades out over its
+    tail so speech can duck in on top. Returns the faded music segment."""
+    bed = AudioSegment.from_file(io.BytesIO(music))
+    # Fade the last stretch so the theme resolves under the opening line.
+    fade_ms = min(len(bed), max(1500, len(bed) - speech_lead_ms))
+    return bed.fade_out(fade_ms)
+
+
 def build_episode_audio(
     chunks: list[bytes],
     chapter_indices: list[list[int]],
     config: AudioProductionConfig | None = None,
+    intro_music: bytes | None = None,
 ) -> dict:
     """Mix TTS chunks into per-chapter audio plus the full episode.
 
@@ -36,7 +46,9 @@ def build_episode_audio(
         "segment_durations": [float per chunk],
     }
     The episode is the chapters joined in order, so chapter start offsets are
-    exact positions in the episode file.
+    exact positions in the episode file. An optional music theme is prepended
+    to the first chapter (so walk-mode playback still reproduces the full mix),
+    with the opening line ducking in under its fade-out tail.
     """
     if not _HAS_PYDUB:
         raise RuntimeError("pydub/ffmpeg required for audio mixing")
@@ -61,6 +73,20 @@ def build_episode_audio(
                 combined += silence
             combined += decoded[idx]
         chapter_audio.append(combined)
+
+    if intro_music and chapter_audio:
+        try:
+            bed = _intro_bed(intro_music)
+            opener = chapter_audio[0]
+            lead_ms = min(2500, len(bed))  # first line ducks in this early
+            pos = max(0, len(bed) - lead_ms)
+            # Pad the music so overlay (which truncates to the base length)
+            # has room for the full opening chapter, then lay speech on top.
+            total = pos + len(opener)
+            padded = bed + AudioSegment.silent(duration=max(0, total - len(bed)))
+            chapter_audio[0] = padded.overlay(opener, position=pos)
+        except Exception as exc:  # never let a bad theme break the episode
+            log.warning("audio.intro_music_failed", error=str(exc))
 
     episode = AudioSegment.empty()
     for i, ch in enumerate(chapter_audio):

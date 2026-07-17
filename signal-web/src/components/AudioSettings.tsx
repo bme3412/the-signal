@@ -103,6 +103,28 @@ export function AudioSettings({ config, onChange }: Props) {
           <div className="text-xs text-(--color-text-muted)">Even out audio levels across segments</div>
         </div>
       </label>
+
+      {/* Intro music toggle */}
+      <label className="flex items-center gap-3 cursor-pointer">
+        <div
+          className={`w-10 h-6 rounded-full transition relative ${
+            config.intro_music ? 'bg-(--color-accent)' : 'bg-(--color-border)'
+          }`}
+          onClick={() => update('intro_music', !config.intro_music)}
+        >
+          <div
+            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+              config.intro_music ? 'translate-x-5' : 'translate-x-1'
+            }`}
+          />
+        </div>
+        <div>
+          <div className="text-sm">Intro Theme Music</div>
+          <div className="text-xs text-(--color-text-muted)">
+            A short music sting that opens the episode and fades under the first line
+          </div>
+        </div>
+      </label>
     </div>
   );
 }

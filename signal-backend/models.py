@@ -86,11 +86,17 @@ class StyleConfig(BaseModel):
 # --------------- Voice Settings ---------------
 
 class VoiceSettings(BaseModel):
-    """Per-voice ElevenLabs settings."""
+    """Per-voice ElevenLabs settings.
 
-    stability: float = Field(0.5, ge=0.0, le=1.0)
+    Defaults are tuned for warm, natural podcast delivery: lower stability
+    gives the voice emotional range (higher = flatter/robotic), and speed 1.0
+    is normal conversational pace (0.7–1.2 supported).
+    """
+
+    stability: float = Field(0.4, ge=0.0, le=1.0)
     similarity_boost: float = Field(0.75, ge=0.0, le=1.0)
-    style: float = Field(0.4, ge=0.0, le=1.0)
+    style: float = Field(0.5, ge=0.0, le=1.0)
+    speed: float = Field(1.0, ge=0.7, le=1.2)
     use_speaker_boost: bool = True
 
 
@@ -111,6 +117,7 @@ class AudioProductionConfig(BaseModel):
     fade_out_ms: int = Field(0, ge=0, le=500)
     normalize: bool = False
     target_dbfs: float = Field(-16.0, ge=-30.0, le=-6.0)
+    intro_music: bool = False  # prepend a music theme sting to the episode
 
 
 # --------------- Article ---------------

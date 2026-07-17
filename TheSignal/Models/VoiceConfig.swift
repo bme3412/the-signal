@@ -10,15 +10,17 @@ struct VoiceInfo: Codable, Identifiable, Hashable {
 // MARK: - Voice Settings
 
 struct VoiceSettings: Codable, Equatable {
-    var stability: Double = 0.5
+    var stability: Double = 0.4
     var similarityBoost: Double = 0.75
-    var style: Double = 0.4
+    var style: Double = 0.5
+    var speed: Double = 1.0
     var useSpeakerBoost: Bool = true
 
     enum CodingKeys: String, CodingKey {
         case stability
         case similarityBoost = "similarity_boost"
         case style
+        case speed
         case useSpeakerBoost = "use_speaker_boost"
     }
 }
@@ -43,6 +45,7 @@ struct AudioProductionConfig: Codable, Equatable {
     var fadeOutMs: Int = 0
     var normalize: Bool = false
     var targetDbfs: Double = -16.0
+    var introMusic: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case silenceDurationMs = "silence_duration_ms"
@@ -50,6 +53,7 @@ struct AudioProductionConfig: Codable, Equatable {
         case fadeOutMs = "fade_out_ms"
         case normalize
         case targetDbfs = "target_dbfs"
+        case introMusic = "intro_music"
     }
 }
 

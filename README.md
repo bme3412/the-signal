@@ -140,6 +140,14 @@ settings.
 - **Structure**: Narrative / Ranked / Thematic / Contrarian
 - **Closer**: Actionable / Philosophical / Prediction / Question
 
+### Sound & Music
+Voices use warm podcast-tuned defaults (lower stability for emotional range,
+adjustable pace 0.7-1.2x). Toggle **Intro Theme Music** in audio production to
+open each episode with a short sting that fades under the first line — it's
+generated once via the ElevenLabs Music API and cached, or drop your own at
+`signal-backend/data/theme.mp3`. The script is now written for spoken delivery
+(flowing sentences, not headline fragments) to avoid the robotic read.
+
 ### Voice Selection
 9 ElevenLabs voices with per-speaker settings:
 - Stability (consistency)

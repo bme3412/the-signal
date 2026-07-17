@@ -16,7 +16,7 @@ from models import (
     SpeakerConfig,
     StyleConfig,
 )
-from services import article_svc, audio_svc, kb_svc, script_svc, tts_svc
+from services import article_svc, audio_svc, kb_svc, music_svc, script_svc, tts_svc
 from store import Store
 
 log = structlog.get_logger()
@@ -141,10 +141,15 @@ async def run_pipeline(
 
         # 4. Mix — full episode plus one file per chapter for adaptive playback
         store.update_status(episode_id, EpisodeStatus.mixing)
-        narrate(EpisodeStatus.mixing, f"Mixing {len(segments)} segments into the final cut…")
         t0 = time.time()
+        intro_music = None
+        if audio_config.intro_music:
+            narrate(EpisodeStatus.mixing, "Adding the theme music…")
+            intro_music = await music_svc.get_theme(settings)
+        narrate(EpisodeStatus.mixing, f"Mixing {len(segments)} segments into the final cut…")
         mix = audio_svc.build_episode_audio(
-            audio_chunks, [c.segment_indices for c in chapters], audio_config
+            audio_chunks, [c.segment_indices for c in chapters], audio_config,
+            intro_music=intro_music,
         )
         metrics.mix_time_ms = _ms_since(t0)
 

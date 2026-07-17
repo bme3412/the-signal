@@ -134,6 +134,23 @@ def build_system_prompt(style: StyleConfig, target_words: int = 4500) -> str:
         "",
         f"TARGET: ~{target_words} words ({target_words // 150} minutes at speaking pace).",
         "",
+        "WRITE FOR THE EAR, NOT THE EYE — this is the difference between "
+        "sounding human and sounding like a robot reading headlines:",
+        "- Write in complete, flowing spoken sentences. A voice model reads a "
+        "period as a full stop, so strings of fragments ('Sunday. Three p.m. "
+        "East Rutherford.') come out clipped and robotic. Instead: 'It's "
+        "Sunday afternoon in East Rutherford, New Jersey, and kickoff is at "
+        "three Eastern.'",
+        "- Vary sentence length. Mix short punchy lines with longer, winding "
+        "ones — that rhythm is what makes speech sound alive.",
+        "- Use natural connective tissue: 'and', 'but here's the thing', 'so', "
+        "'which means', 'now'. Let thoughts run into each other the way people "
+        "actually talk.",
+        "- Read it aloud in your head. If a line would sound like a stock "
+        "ticker or a list of nouns, rewrite it as a sentence a person would say.",
+        "- Spell out how things are said: 'two to nothing', not '2-0'; "
+        "'ninety-sixth minute', not '96th'. Expand abbreviations.",
+        "",
         "RULES:",
         "- No filler phrases ('without further ado', 'let's dive in', 'buckle up')",
         "- Reference specific data points, numbers, quotes from the source material",
