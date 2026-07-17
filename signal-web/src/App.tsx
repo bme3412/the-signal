@@ -14,6 +14,7 @@ function App() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [playingEpisode, setPlayingEpisode] = useState<Episode | null>(null);
+  const [backendDown, setBackendDown] = useState(false);
 
   const loadArticles = useCallback(async () => {
     try {
@@ -34,6 +35,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    api.checkHealth().then((ok) => setBackendDown(!ok));
     loadArticles();
     loadEpisodes();
   }, [loadArticles, loadEpisodes]);
@@ -100,6 +102,20 @@ function App() {
           </span>
         </div>
       </header>
+
+      {/* Backend connectivity warning */}
+      {backendDown && (
+        <div className="bg-(--color-accent) text-white">
+          <div className="max-w-3xl mx-auto px-6 py-2.5 text-sm">
+            <strong>No backend connected.</strong>{' '}
+            {import.meta.env.VITE_API_URL
+              ? 'The configured backend is unreachable — check that it is running.'
+              : window.location.hostname === 'localhost'
+              ? 'Start it with: cd signal-backend && uvicorn main:app --reload'
+              : 'This deployed site has no API server. Run the app locally (localhost:5173), or host the backend and set VITE_API_URL in Vercel.'}
+          </div>
+        </div>
+      )}
 
       {/* Pipeline nav */}
       <nav className="bg-(--color-surface) border-b border-(--color-border) sticky top-0 z-10">

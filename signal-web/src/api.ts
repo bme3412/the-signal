@@ -20,6 +20,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export async function checkHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/health`);
+    if (!res.ok) return false;
+    const body = await res.json();
+    return body?.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
 // Articles
 export async function listArticles(): Promise<Article[]> {
   return request('/api/articles');
