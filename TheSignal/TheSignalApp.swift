@@ -38,6 +38,10 @@ struct ContentView: View {
                     Tab("Episodes", systemImage: "headphones", value: 2) {
                         EpisodeListView()
                     }
+
+                    Tab("Settings", systemImage: "gearshape", value: 3) {
+                        SettingsView()
+                    }
                 }
                 .environment(articleStore)
                 .safeAreaInset(edge: .bottom) {

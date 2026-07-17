@@ -62,12 +62,14 @@ struct ScriptSegment: Codable, Identifiable {
     let speaker: String
     let text: String
     let charCount: Int
+    let durationSeconds: Double?
 
     var id: String { "\(speaker)-\(charCount)-\(text.prefix(20))" }
 
     enum CodingKeys: String, CodingKey {
         case speaker, text
         case charCount = "char_count"
+        case durationSeconds = "duration_seconds"
     }
 
     var speakerColor: Color {
@@ -85,12 +87,13 @@ struct ScriptSegment: Codable, Identifiable {
 struct EpisodeScript: Codable {
     let rawText: String
     let segments: [ScriptSegment]
+    let chapters: [ScriptChapter]?
     let wordCount: Int
     let estimatedMinutes: Double
 
     enum CodingKeys: String, CodingKey {
         case rawText = "raw_text"
-        case segments
+        case segments, chapters
         case wordCount = "word_count"
         case estimatedMinutes = "estimated_minutes"
     }

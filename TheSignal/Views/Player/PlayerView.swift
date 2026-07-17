@@ -4,6 +4,11 @@ struct PlayerView: View {
     let episode: Episode
     @Environment(AudioManager.self) private var audio
     @State private var showingScript = false
+    @State private var showingWalkSheet = false
+
+    private var isWalkingThisEpisode: Bool {
+        audio.isWalkMode && audio.currentEpisode?.id == episode.id
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +20,11 @@ struct PlayerView: View {
             metadata
                 .padding(.bottom, 24)
 
-            if let script = episode.script {
+            if isWalkingThisEpisode {
+                walkStatusCard
+                    .padding(.horizontal)
+                    .padding(.bottom, 24)
+            } else if let script = episode.script {
                 SegmentMap(segments: script.segments, currentTime: audio.currentTime, duration: audio.duration) { time in
                     audio.seek(to: time)
                 }
@@ -31,8 +40,10 @@ struct PlayerView: View {
             transportControls
                 .padding(.bottom, 12)
 
-            rateSelector
-                .padding(.bottom, 24)
+            if !isWalkingThisEpisode {
+                rateSelector
+                    .padding(.bottom, 24)
+            }
 
             bottomActions
 
@@ -42,9 +53,71 @@ struct PlayerView: View {
         .background(Color.background)
         .sheet(isPresented: $showingScript) {
             if let script = episode.script {
-                scriptSheet(script)
+                TranscriptView(script: script, title: "Transcript")
             }
         }
+        .sheet(isPresented: $showingWalkSheet) {
+            WalkPlanSheet(episode: episode)
+                .environment(audio)
+        }
+    }
+
+    // MARK: - Walk Status
+
+    private var walkStatusCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "figure.walk")
+                .font(.title3)
+                .foregroundStyle(Color.accentBlue)
+                .symbolEffect(.pulse, isActive: audio.isPlaying)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(audio.currentWalkChapter?.title ?? "Done")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                if let walk = audio.walk {
+                    Text(walkDetail(walk))
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(Color.textMuted)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                audio.endWalk()
+            } label: {
+                Text("End")
+                    .font(.caption.weight(.medium))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.surface, in: .capsule)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(Color.accentBlue.opacity(0.1), in: .rect(cornerRadius: 12))
+    }
+
+    private func walkDetail(_ walk: WalkState) -> String {
+        let played = walk.playedIndices.count
+        let total = played + walk.queue.count
+        var parts = ["Chapter \(min(played + 1, total)) of \(total)"]
+        if let distance = audio.routeTracker?.distanceText() {
+            parts.append(distance)
+        } else {
+            parts.append("ends \(walk.targetEnd.formatted(date: .omitted, time: .shortened))")
+        }
+        if walk.plan.rate != 1.0 {
+            parts.append(String(format: "%.2fx", walk.plan.rate))
+        }
+        let skipped = walk.plan.skippedIndices.count
+        if skipped > 0 {
+            parts.append("\(skipped) bonus skipped")
+        }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Artwork
@@ -177,33 +250,11 @@ struct PlayerView: View {
                         .foregroundStyle(Color.textSecondary)
                 }
             }
-        }
-    }
-
-    // MARK: - Script Sheet
-
-    private func scriptSheet(_ script: EpisodeScript) -> some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(script.segments) { seg in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(seg.speaker)
-                                .font(.caption.weight(.bold).monospaced())
-                                .foregroundStyle(seg.speakerColor)
-                            Text(seg.text)
-                                .font(.body)
-                                .foregroundStyle(Color.textPrimary)
-                        }
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle("Script")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { showingScript = false }
+            if episode.status == .ready && !isWalkingThisEpisode {
+                Button { showingWalkSheet = true } label: {
+                    Label("Walk", systemImage: "figure.walk")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
                 }
             }
         }

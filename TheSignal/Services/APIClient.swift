@@ -16,14 +16,25 @@ enum APIError: LocalizedError {
     }
 }
 
+struct HealthResponse: Codable {
+    let status: String
+    let anthropicConfigured: Bool
+    let elevenlabsConfigured: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case anthropicConfigured = "anthropic_configured"
+        case elevenlabsConfigured = "elevenlabs_configured"
+    }
+}
+
 actor APIClient {
     static let shared = APIClient()
 
-    #if DEBUG
-    private var baseURL = "http://localhost:8000"
-    #else
-    private var baseURL = "http://localhost:8000"
-    #endif
+    static let defaultBaseURL = "http://localhost:8000"
+    static let baseURLDefaultsKey = "backendBaseURL"
+
+    private var baseURL: String
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -31,13 +42,29 @@ actor APIClient {
     private let maxRetries = 3
 
     private init() {
+        baseURL = UserDefaults.standard.string(forKey: Self.baseURLDefaultsKey)
+            ?? Self.defaultBaseURL
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 300
         session = URLSession(configuration: config)
 
         decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        // The backend (pydantic) emits fractional seconds, which the plain
+        // .iso8601 strategy cannot parse.
+        let isoFractional = ISO8601DateFormatter()
+        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            if let date = isoFractional.date(from: raw) ?? iso.date(from: raw) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container, debugDescription: "Unparseable date: \(raw)"
+            )
+        }
 
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -45,6 +72,11 @@ actor APIClient {
 
     func setBaseURL(_ url: String) {
         baseURL = url
+        UserDefaults.standard.set(url, forKey: Self.baseURLDefaultsKey)
+    }
+
+    func checkHealth() async throws -> HealthResponse {
+        try await get("/health")
     }
 
     // MARK: - Articles
@@ -87,6 +119,37 @@ actor APIClient {
 
     func listEpisodes() async throws -> [Episode] {
         try await get("/api/episodes")
+    }
+
+    func getManifest(episodeId: String) async throws -> EpisodeManifest {
+        try await get("/api/episodes/\(episodeId)/manifest")
+    }
+
+    func downloadChapterAudio(episodeId: String, chapter: ManifestChapter) async throws -> URL {
+        guard let path = chapter.audioURL, let url = URL(string: "\(baseURL)\(path)") else {
+            throw APIError.invalidURL
+        }
+        let (tempURL, response) = try await session.download(from: url)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.badStatus(
+                (response as? HTTPURLResponse)?.statusCode ?? 0,
+                "Chapter download failed"
+            )
+        }
+
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let name = String(format: "%02d.mp3", chapter.index)
+        let dest = docs.appendingPathComponent("episodes/\(episodeId)/chapters/\(name)")
+        try FileManager.default.createDirectory(
+            at: dest.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if FileManager.default.fileExists(atPath: dest.path) {
+            try FileManager.default.removeItem(at: dest)
+        }
+        try FileManager.default.moveItem(at: tempURL, to: dest)
+        return dest
     }
 
     func downloadAudio(episodeId: String) async throws -> URL {
