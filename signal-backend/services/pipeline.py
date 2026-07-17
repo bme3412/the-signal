@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from collections.abc import Sequence
@@ -293,36 +294,36 @@ async def run_pipeline(
             EpisodeStatus.mixing,
             "Sewing the takes together — almost in your ears…",
         )
-        mix = audio_svc.build_episode_audio(
-            audio_chunks, [c.segment_indices for c in chapters], audio_config,
-            intro_music=intro_music,
+        # Mix is CPU-bound (pydub/ffmpeg). Run off the event loop so status
+        # polls from mobile/web keep responding during the sew.
+        chapter_index_lists = [c.segment_indices for c in chapters]
+        mix = await asyncio.to_thread(
+            audio_svc.build_episode_audio,
+            audio_chunks,
+            chapter_index_lists,
+            audio_config,
+            intro_music,
         )
         metrics.mix_time_ms = _ms_since(t0)
 
-        # 5. Save & finish
+        # 5. Save audio, mark ready immediately — don't block on web searches.
         for seg, dur in zip(segments, mix["segment_durations"]):
             seg.duration_seconds = dur
         for i, (chapter, built) in enumerate(zip(chapters, mix["chapters"])):
             chapter.duration_seconds = built["duration_seconds"]
             chapter.start_seconds = built["start_seconds"]
-            chapter.audio_url = audio_svc.save_chapter_audio(
-                episode_id, i, built["audio"], settings.storage_path
+            chapter.audio_url = await asyncio.to_thread(
+                audio_svc.save_chapter_audio,
+                episode_id,
+                i,
+                built["audio"],
+                settings.storage_path,
             )
         final_audio = mix["episode"]
-        audio_url = audio_svc.save_audio(episode_id, final_audio, settings.storage_path)
-        duration = audio_svc.get_duration(final_audio)
-
-        narrate(
-            EpisodeStatus.mixing,
-            "Pulling a reading list for the things we talked about…",
+        audio_url = await asyncio.to_thread(
+            audio_svc.save_audio, episode_id, final_audio, settings.storage_path,
         )
-        try:
-            links = await links_svc.curate_links(
-                articles, episode_script, title, focus, settings,
-            )
-        except Exception as exc:
-            log.warning("links.curate_failed", error=str(exc))
-            links = []
+        duration = await asyncio.to_thread(audio_svc.get_duration, final_audio)
 
         mins, secs = int(duration // 60), int(duration % 60)
         narrate(
@@ -339,11 +340,14 @@ async def run_pipeline(
             4,
         )
 
+        # Source articles only for now — contextual links fill in after ready.
+        seed_links = links_svc.seed_source_links(articles)
+
         episode = store.update_episode(
             episode_id,
             status=EpisodeStatus.ready,
             script=episode_script,  # now carries measured durations + chapter URLs
-            links=links,
+            links=seed_links,
             audio_url=audio_url,
             audio_duration_seconds=round(duration, 1),
             metrics=metrics,
@@ -356,6 +360,21 @@ async def run_pipeline(
             cost_usd=metrics.estimated_cost_usd,
             total_ms=metrics.total_time_ms,
         )
+
+        # Background reading-list curation (must not delay playback).
+        try:
+            links = await asyncio.wait_for(
+                links_svc.curate_links(
+                    articles, episode_script, title, focus, settings,
+                ),
+                timeout=45.0,
+            )
+            if links:
+                store.update_episode(episode_id, links=links)
+                episode = store.get_episode(episode_id) or episode
+        except Exception as exc:
+            log.warning("links.curate_failed", error=str(exc))
+
         return episode
 
     except Exception as exc:

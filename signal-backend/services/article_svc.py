@@ -10,6 +10,7 @@ from readability import Document
 from anthropic import AsyncAnthropic
 from config import Settings
 from prompts import build_angles_prompt, build_enrichment_prompt
+from services.source_quality import rank_results, reputation_score
 
 log = structlog.get_logger()
 
@@ -103,8 +104,19 @@ async def search_topic(
             "source": httpx.URL(url).host or "",
         })
 
-    log.info("article.topic_search", query=query, results=len(results))
-    return results[:limit]
+    # Prefer known outlets (Reuters, FT, etc.) over aggregators / social / SEO farms.
+    filtered = [r for r in results if reputation_score(r.get("url") or "") >= 0]
+    ordered = rank_results(filtered)
+
+    log.info(
+        "article.topic_search",
+        query=query,
+        results=len(ordered[:limit]),
+        reputable=sum(
+            1 for r in ordered[:limit] if reputation_score(r.get("url") or "") >= 7
+        ),
+    )
+    return ordered[:limit]
 
 
 async def suggest_angles(
