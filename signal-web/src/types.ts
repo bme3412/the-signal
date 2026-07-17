@@ -83,6 +83,8 @@ export interface Article {
   url: string | null;
   text: string;
   summary: string | null;
+  topics: string[];
+  entities: string[];
   word_count: number;
   created_at: string;
 }
@@ -94,13 +96,43 @@ export interface ScriptSegment {
   speaker: string;
   text: string;
   char_count: number;
+  duration_seconds: number;
+}
+
+export type ChapterRole = 'intro' | 'core' | 'optional' | 'closer';
+
+export interface Chapter {
+  title: string;
+  role: ChapterRole;
+  segment_indices: number[];
+  audio_url: string | null;
+  duration_seconds: number;
+  start_seconds: number;
 }
 
 export interface EpisodeScript {
   raw_text: string;
   segments: ScriptSegment[];
+  chapters: Chapter[];
   word_count: number;
   estimated_minutes: number;
+}
+
+export interface ManifestChapter {
+  index: number;
+  title: string;
+  role: ChapterRole;
+  audio_url: string | null;
+  duration_seconds: number;
+  start_seconds: number;
+  segments: ScriptSegment[];
+}
+
+export interface EpisodeManifest {
+  episode_id: string;
+  status: EpisodeStatus;
+  total_duration_seconds: number;
+  chapters: ManifestChapter[];
 }
 
 export interface PipelineMetrics {

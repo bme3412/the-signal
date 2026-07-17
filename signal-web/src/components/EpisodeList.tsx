@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Episode, EpisodeStatus } from '../types';
+import { TranscriptModal } from './Transcript';
 
 interface Props {
   episodes: Episode[];
@@ -17,6 +19,8 @@ const statusConfig: Record<EpisodeStatus, { label: string; color: string; icon: 
 };
 
 export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
+  const [transcriptEpisode, setTranscriptEpisode] = useState<Episode | null>(null);
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', {
@@ -58,10 +62,10 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
             const isPlayable = episode.status === 'ready';
 
             return (
-              <button
+              <div
                 key={episode.id}
                 onClick={() => isPlayable && onSelect(episode)}
-                disabled={!isPlayable}
+                role="button"
                 className={`w-full p-4 rounded-xl border text-left transition ${
                   isPlayable
                     ? 'bg-[--color-surface] border-[--color-border] hover:border-[--color-accent-blue] cursor-pointer'
@@ -110,16 +114,34 @@ export function EpisodeList({ episodes, onSelect, onRefresh }: Props) {
                       )}
                     </div>
                   </div>
+
+                  {/* Transcript */}
+                  {episode.script && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTranscriptEpisode(episode);
+                      }}
+                      title="View transcript"
+                      className="px-3 py-1.5 rounded-lg text-sm bg-[--color-background] border border-[--color-border] text-[--color-text-secondary] hover:text-[--color-text-primary] hover:border-[--color-accent-blue] transition shrink-0"
+                    >
+                      📄 Transcript
+                    </button>
+                  )}
                 </div>
 
                 {/* Error message */}
                 {episode.status === 'failed' && episode.error && (
                   <p className="mt-2 text-sm text-red-400 truncate">{episode.error}</p>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {transcriptEpisode && (
+        <TranscriptModal episode={transcriptEpisode} onClose={() => setTranscriptEpisode(null)} />
       )}
     </div>
   );

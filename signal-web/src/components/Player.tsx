@@ -1,19 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Episode } from '../types';
 import { getAudioUrl } from '../api';
+import { speakerColors } from './Transcript';
 
 interface Props {
   episode: Episode;
   onClose: () => void;
 }
-
-const speakerColors: Record<string, string> = {
-  ALEX: '#0a84ff',
-  JAMIE: '#ff9500',
-  HOST: '#0a84ff',
-  BULL: '#34c759',
-  BEAR: '#ff3b30',
-};
 
 export function Player({ episode, onClose }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
