@@ -16,10 +16,11 @@ interface Props {
 export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh, onFocusSuggested }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Groups start collapsed; track which ones the user has expanded.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  const toggleCollapsed = (name: string) => {
-    setCollapsedGroups((prev) => {
+  const toggleExpanded = (name: string) => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(name)) {
         next.delete(name);
@@ -128,11 +129,14 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
           {groups.map(([name, groupArticles]) => {
             const allSelected = groupArticles.every((a) => selectedIds.has(a.id));
             const someSelected = groupArticles.some((a) => selectedIds.has(a.id));
-            const isCollapsed = collapsedGroups.has(name);
+            const isExpanded = expandedGroups.has(name);
             const selectedCount = groupArticles.filter((a) => selectedIds.has(a.id)).length;
             return (
-              <section key={name}>
-                <div className="flex items-center gap-3 mb-2 px-1">
+              <section
+                key={name}
+                className="bg-(--color-surface) border border-(--color-border) rounded-2xl overflow-hidden"
+              >
+                <div className="flex items-center gap-3 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -144,28 +148,33 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh,
                     className="w-4 h-4 accent-(--color-accent)"
                   />
                   <button
-                    onClick={() => toggleCollapsed(name)}
-                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    onClick={() => toggleExpanded(name)}
+                    className="flex items-baseline gap-3 flex-1 min-w-0 text-left"
                   >
                     <h3 className="font-display text-lg font-semibold italic truncate">{name}</h3>
                     <span className="font-mono text-[11px] text-(--color-text-muted) shrink-0">
                       {groupArticles.length} article{groupArticles.length === 1 ? '' : 's'}
-                      {isCollapsed && selectedCount > 0 && ` · ${selectedCount} selected`}
-                    </span>
-                    <span className="ml-auto text-(--color-text-muted) shrink-0">
-                      {isCollapsed ? '▸' : '▾'}
+                      {selectedCount > 0 && ` · ${selectedCount} selected`}
                     </span>
                   </button>
+                  <button
+                    onClick={() => toggleExpanded(name)}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-(--color-background) border border-(--color-border) text-(--color-text-secondary) hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
+                    aria-expanded={isExpanded}
+                  >
+                    {isExpanded ? 'Hide' : 'Show'}
+                    <span className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
                 </div>
-                {isCollapsed ? null : (
-                <div className="space-y-2">
+                {isExpanded && (
+                <div className="px-3 pb-3 space-y-2 border-t border-(--color-border) pt-3">
                   {groupArticles.map((article) => (
                     <div
                       key={article.id}
                       className={`p-4 rounded-xl border transition cursor-pointer ${
                         selectedIds.has(article.id)
                           ? 'bg-(--color-accent)/10 border-(--color-accent)'
-                          : 'bg-(--color-surface) border-(--color-border) hover:border-(--color-text-muted)'
+                          : 'bg-(--color-background) border-(--color-border) hover:border-(--color-text-muted)'
                       }`}
                       onClick={() => onToggleSelect(article.id)}
                     >

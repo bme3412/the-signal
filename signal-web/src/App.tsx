@@ -99,7 +99,7 @@ function App() {
             </h1>
           </div>
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-(--color-text-muted) pb-1">
-            turn reading into radio
+            your reading, as a podcast
           </span>
         </div>
       </header>
