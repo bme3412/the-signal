@@ -56,6 +56,57 @@ async def _extract_via_firecrawl(url: str, settings: Settings) -> dict:
     return {"title": title, "text": text, "source": source}
 
 
+async def search_topic(
+    query: str,
+    settings: Settings,
+    limit: int = 8,
+    tbs: str | None = None,
+) -> list[dict]:
+    """Find candidate articles for a topic via Firecrawl search.
+
+    Returns [{"title", "url", "description", "source"}], news results first.
+    `tbs` is a Google-style recency filter (qdr:d / qdr:w / qdr:m).
+    """
+    body: dict = {"query": query, "limit": limit, "sources": ["news", "web"]}
+    if tbs:
+        body["tbs"] = tbs
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.firecrawl.dev/v2/search",
+            headers={"Authorization": f"Bearer {settings.firecrawl_api_key}"},
+            json=body,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+
+    if not payload.get("success"):
+        raise ValueError(f"Firecrawl search failed: {payload.get('error', 'unknown')}")
+
+    data = payload.get("data") or {}
+    if isinstance(data, list):  # v1-style flat list
+        raw = data
+    else:
+        raw = (data.get("news") or []) + (data.get("web") or [])
+
+    results: list[dict] = []
+    seen: set[str] = set()
+    for item in raw:
+        url = item.get("url")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        results.append({
+            "title": (item.get("title") or url).strip(),
+            "url": url,
+            "description": (item.get("description") or "").strip(),
+            "source": httpx.URL(url).host or "",
+        })
+
+    log.info("article.topic_search", query=query, results=len(results))
+    return results[:limit]
+
+
 async def _extract_via_readability(url: str) -> dict:
     async with httpx.AsyncClient(
         headers={"User-Agent": _USER_AGENT},

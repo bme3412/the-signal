@@ -89,6 +89,8 @@ show builds continuity over time.
 
 - `GET /api/articles/search?q=...` — full-text search across the knowledge base
 - `GET /api/articles/{id}/related` — articles related by topic/entity overlap
+- `POST /api/discover` — web-search a topic (Firecrawl) and return candidate
+  articles to queue; the web app's "Discover topic" button drives this
 
 ### Chapter Manifest (adaptive playback)
 Episodes are scripted in chapters (`intro` / `core` / `optional` / `closer`) and

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Article } from '../types';
+import { DiscoverModal } from './DiscoverModal';
 import * as api from '../api';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 
 export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDiscover, setShowDiscover] = useState(false);
   const [addMode, setAddMode] = useState<'url' | 'manual'>('url');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -59,12 +61,20 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
             Save articles here, then select the ones for your next episode.
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition shrink-0"
-        >
-          + Add article
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => setShowDiscover(true)}
+            className="px-4 py-2 bg-(--color-surface) border border-(--color-border) text-(--color-text-secondary) rounded-full font-semibold text-sm hover:border-(--color-accent) hover:text-(--color-text-primary) transition"
+          >
+            Discover topic
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
+          >
+            + Add article
+          </button>
+        </div>
       </div>
 
       {articles.length === 0 ? (
@@ -115,6 +125,10 @@ export function ArticleQueue({ articles, selectedIds, onToggleSelect, onRefresh 
             </div>
           ))}
         </div>
+      )}
+
+      {showDiscover && (
+        <DiscoverModal onClose={() => setShowDiscover(false)} onAdded={onRefresh} />
       )}
 
       {/* Add Article Modal */}

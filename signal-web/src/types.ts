@@ -89,6 +89,15 @@ export interface Article {
   created_at: string;
 }
 
+// Discovery
+export interface DiscoverResult {
+  title: string;
+  url: string;
+  description: string;
+  source: string;
+  in_queue: boolean;
+}
+
 // Episode
 export type EpisodeStatus = 'queued' | 'summarizing' | 'scripting' | 'synthesizing' | 'mixing' | 'ready' | 'failed';
 

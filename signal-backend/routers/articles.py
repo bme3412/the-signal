@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from config import Settings, get_settings
-from models import Article, ArticleCreate
+from models import Article, ArticleCreate, DiscoverRequest, DiscoverResult
 from services import article_svc, kb_svc
 from store import Store
 
@@ -68,6 +68,31 @@ async def create_article(
             _enrich_in_background, article.id, article.text, store, settings
         )
     return article
+
+
+_RECENCY_TBS = {"day": "qdr:d", "week": "qdr:w", "month": "qdr:m"}
+
+
+@router.post("/discover", response_model=list[DiscoverResult])
+async def discover_articles(body: DiscoverRequest, request: Request):
+    """Web-search a topic and return candidate articles to queue."""
+    settings = get_settings()
+    if not settings.firecrawl_api_key:
+        raise HTTPException(
+            400, "Topic discovery requires FIRECRAWL_API_KEY in .env (firecrawl.dev)"
+        )
+    try:
+        results = await article_svc.search_topic(
+            body.topic, settings, limit=body.limit, tbs=_RECENCY_TBS.get(body.recency)
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"Topic search failed: {exc}")
+
+    queued_urls = {a.url for a in _get_store(request).list_articles() if a.url}
+    return [
+        DiscoverResult(**r, in_queue=r["url"] in queued_urls)
+        for r in results
+    ]
 
 
 @router.get("/articles", response_model=list[Article])

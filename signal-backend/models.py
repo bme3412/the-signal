@@ -135,6 +135,20 @@ class ArticleCreate(BaseModel):
     source: str | None = None
 
 
+class DiscoverRequest(BaseModel):
+    topic: str = Field(..., min_length=2)
+    limit: int = Field(8, ge=1, le=20)
+    recency: str = "week"  # day | week | month | any
+
+
+class DiscoverResult(BaseModel):
+    title: str
+    url: str
+    description: str = ""
+    source: str = ""
+    in_queue: bool = False
+
+
 # --------------- Script ---------------
 
 class ChapterRole(str, Enum):
