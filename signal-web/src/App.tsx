@@ -161,7 +161,7 @@ function App() {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 py-8 pb-28">
+      <main className="flex-1 py-8">
         <div className="max-w-3xl mx-auto px-6">
           {activeTab === 'queue' && (
             <ArticleQueue
@@ -193,27 +193,28 @@ function App() {
             />
           )}
         </div>
-      </main>
 
-      {/* Continue bar: appears once articles are selected in the queue */}
-      {showContinueBar && (
-        <div className="fixed bottom-6 left-0 right-0 z-20 px-6 pointer-events-none">
-          <div className="max-w-3xl mx-auto flex justify-center">
-            <div className="rise pointer-events-auto flex items-center gap-4 bg-(--color-surface) border border-(--color-border) rounded-full pl-5 pr-2 py-2 shadow-[0_8px_30px_rgba(34,29,21,0.15)]">
-              <span className="font-mono text-xs text-(--color-text-secondary)">
-                {selectedIds.size} article{selectedIds.size === 1 ? '' : 's'} ·{' '}
-                {selectedWords.toLocaleString()} words
-              </span>
-              <button
-                onClick={() => setActiveTab('generate')}
-                className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
-              >
-                Compose episode →
-              </button>
+        {/* Continue bar: sits right under a short list, pins to the viewport
+            bottom while scrolling a long one */}
+        {showContinueBar && (
+          <div className="sticky bottom-6 z-20 mt-6 px-6 pointer-events-none">
+            <div className="max-w-3xl mx-auto flex justify-center">
+              <div className="rise pointer-events-auto flex items-center gap-4 bg-(--color-surface) border border-(--color-border) rounded-full pl-5 pr-2 py-2 shadow-[0_8px_30px_rgba(34,29,21,0.15)]">
+                <span className="font-mono text-xs text-(--color-text-secondary)">
+                  {selectedIds.size} article{selectedIds.size === 1 ? '' : 's'} ·{' '}
+                  {selectedWords.toLocaleString()} words
+                </span>
+                <button
+                  onClick={() => setActiveTab('generate')}
+                  className="px-4 py-2 bg-(--color-accent) text-white rounded-full font-semibold text-sm hover:opacity-90 transition"
+                >
+                  Compose episode →
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
 
       {/* Player overlay */}
       {playingEpisode && (
