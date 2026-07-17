@@ -36,13 +36,21 @@ async def create_article(
     settings = get_settings()
 
     if body.url:
-        extracted = await article_svc.fetch_and_extract(body.url)
+        extracted = await article_svc.fetch_and_extract(body.url, settings)
+        word_count = len(extracted["text"].split())
+        if not body.text and word_count < 80:
+            raise HTTPException(
+                422,
+                f"Only {word_count} words extracted — the page is likely paywalled "
+                "or JS-rendered. Set FIRECRAWL_API_KEY in .env for stronger "
+                "extraction, or paste the text manually.",
+            )
         article = Article(
             title=body.title or extracted["title"],
             source=body.source or extracted["source"],
             url=body.url,
             text=body.text or extracted["text"],
-            word_count=len(extracted["text"].split()),
+            word_count=len((body.text or extracted["text"]).split()),
         )
     elif body.text:
         article = Article(

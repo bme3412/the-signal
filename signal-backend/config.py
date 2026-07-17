@@ -5,11 +5,14 @@ from functools import lru_cache
 class Settings(BaseSettings):
     anthropic_api_key: str = ""
     elevenlabs_api_key: str = ""
+    firecrawl_api_key: str = ""
     claude_model: str = "claude-sonnet-4-20250514"
     elevenlabs_model: str = "eleven_multilingual_v2"
     storage_path: str = "./data"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    # Repo-root .env is read first so secrets can live in one place;
+    # a local signal-backend/.env overrides it.
+    model_config = {"env_file": ("../.env", ".env"), "env_file_encoding": "utf-8"}
 
 
 @lru_cache

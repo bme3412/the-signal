@@ -19,7 +19,44 @@ _USER_AGENT = (
 )
 
 
-async def fetch_and_extract(url: str) -> dict:
+async def fetch_and_extract(url: str, settings: Settings | None = None) -> dict:
+    """Extract an article's title and text from a URL.
+
+    Prefers Firecrawl when configured (handles JS-rendered pages and most
+    anti-bot walls); falls back to plain readability extraction.
+    """
+    if settings and settings.firecrawl_api_key:
+        try:
+            return await _extract_via_firecrawl(url, settings)
+        except Exception as exc:
+            log.warning("article.firecrawl_failed", url=url, error=str(exc))
+    return await _extract_via_readability(url)
+
+
+async def _extract_via_firecrawl(url: str, settings: Settings) -> dict:
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.firecrawl.dev/v2/scrape",
+            headers={"Authorization": f"Bearer {settings.firecrawl_api_key}"},
+            json={"url": url, "formats": ["markdown"], "onlyMainContent": True},
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+
+    data = payload.get("data") or {}
+    text = (data.get("markdown") or "").strip()
+    if not payload.get("success") or not text:
+        raise ValueError(f"Firecrawl returned no content: {payload.get('error', 'unknown')}")
+
+    metadata = data.get("metadata") or {}
+    title = metadata.get("title") or url
+    source = httpx.URL(url).host
+
+    log.info("article.extracted_firecrawl", url=url, title=title, words=len(text.split()))
+    return {"title": title, "text": text, "source": source}
+
+
+async def _extract_via_readability(url: str) -> dict:
     async with httpx.AsyncClient(
         headers={"User-Agent": _USER_AGENT},
         follow_redirects=True,

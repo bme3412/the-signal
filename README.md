@@ -59,7 +59,25 @@ Open http://localhost:5173
 
 ### iOS App
 
-Open `TheSignal/` in Xcode and run on simulator or device.
+Open `TheSignal/` in Xcode and run on simulator or device. Set the backend
+URL in the app's Settings tab (use your Mac's LAN IP on a real device).
+
+## Configuration
+
+All secrets live in **one** `.env`, used only by the backend. Put it either at
+the repo root or in `signal-backend/` (the backend reads both; the local one
+wins). The web app needs no env file locally (Vite proxies to the backend) and
+the iOS app configures its backend URL in-app.
+
+| Key | Required | Purpose |
+|-----|----------|---------|
+| `ANTHROPIC_API_KEY` | yes | Summaries, enrichment, script writing |
+| `ELEVENLABS_API_KEY` | yes | Text-to-speech |
+| `FIRECRAWL_API_KEY` | no | Robust article extraction (JS-rendered and most paywalled pages) |
+
+Without Firecrawl, extraction falls back to plain readability parsing, which
+fails on JS-heavy sites; URL submissions that yield under 80 words are
+rejected with a clear error rather than producing thin episodes.
 
 ## Features
 
