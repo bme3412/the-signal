@@ -35,25 +35,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="The Signal", version="0.1.0", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
-
-
 @app.middleware("http")
 async def require_api_token(request: Request, call_next):
     """Protect the API and media files when SIGNAL_API_TOKEN is configured.
 
     Accepts `Authorization: Bearer <token>` or `?token=` (for <audio> tags,
-    which cannot send headers). /health stays open.
+    which cannot send headers). /health stays open. OPTIONS passes through:
+    CORS preflights carry no auth header by design.
     """
     token = get_settings().signal_api_token
     path = request.url.path
-    if token and (path.startswith("/api") or path.startswith("/data")):
+    if (
+        token
+        and request.method != "OPTIONS"
+        and (path.startswith("/api") or path.startswith("/data"))
+    ):
         auth = request.headers.get("authorization", "")
         provided = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
         provided = provided or request.query_params.get("token") or ""
@@ -62,6 +58,17 @@ async def require_api_token(request: Request, call_next):
                 {"detail": "Invalid or missing API token"}, status_code=401
             )
     return await call_next(request)
+
+
+# Added after the auth middleware so CORS wraps it: preflights are answered
+# and even 401 responses carry CORS headers the browser will surface.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
 app.include_router(articles.router)
 app.include_router(episodes.router)
