@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # When set, /api and /data require this token (Bearer header or ?token=).
     # Leave empty for local development.
     signal_api_token: str = ""
-    claude_model: str = "claude-sonnet-4-20250514"
+    claude_model: str = "claude-opus-4-8"
     elevenlabs_model: str = "eleven_multilingual_v2"
     storage_path: str = "./data"
 

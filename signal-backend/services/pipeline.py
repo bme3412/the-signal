@@ -119,9 +119,10 @@ async def run_pipeline(
         duration = audio_svc.get_duration(final_audio)
 
         metrics.total_time_ms = _ms_since(pipeline_start)
+        # Opus-tier pricing ($5/$25 per MTok) + ElevenLabs characters
         metrics.estimated_cost_usd = round(
-            (metrics.script_tokens_in * 0.003 / 1000)
-            + (metrics.script_tokens_out * 0.015 / 1000)
+            (metrics.script_tokens_in * 0.005 / 1000)
+            + (metrics.script_tokens_out * 0.025 / 1000)
             + (metrics.tts_characters * 0.030 / 1000),
             4,
         )

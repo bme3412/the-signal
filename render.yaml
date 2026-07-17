@@ -12,6 +12,8 @@ services:
     envVars:
       - key: STORAGE_PATH
         value: /app/data
+      - key: CLAUDE_MODEL
+        value: claude-opus-4-8
       - key: SIGNAL_API_TOKEN
         generateValue: true
       - key: ANTHROPIC_API_KEY
