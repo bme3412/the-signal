@@ -21,16 +21,25 @@ export function Player({ episode, onClose }: Props) {
 
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleLoadedMetadata = () => setDuration(audio.duration);
-    const handleEnded = () => setIsPlaying(false);
+    // The element is the source of truth for play state, so the UI can never
+    // show "playing" while silent.
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+
+    // Start immediately when the player opens; browsers may block autoplay
+    // without a fresh user gesture, in which case the ▶ button still works.
+    audio.play().catch(() => {});
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
     };
   }, []);
 
@@ -38,12 +47,11 @@ export function Player({ episode, onClose }: Props) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isPlaying) {
-      audio.pause();
+    if (audio.paused) {
+      audio.play().catch((err) => console.error('Playback failed:', err));
     } else {
-      audio.play();
+      audio.pause();
     }
-    setIsPlaying(!isPlaying);
   };
 
   const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
