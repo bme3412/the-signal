@@ -1,6 +1,9 @@
 import type { Chapter, Episode, ScriptSegment } from '../types';
 
 export const speakerColors: Record<string, string> = {
+  MAYA: '#0a84ff',
+  DEV: '#ff9500',
+  // Legacy speakers — episodes generated before the persistent hosts.
   ALEX: '#0a84ff',
   JAMIE: '#ff9500',
   ANCHOR: '#0a84ff',

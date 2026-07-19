@@ -18,9 +18,18 @@ from models import (
     EpisodeStatus,
     PipelineMetrics,
     SpeakerConfig,
-    StyleConfig,
 )
-from services import article_svc, audio_svc, kb_svc, links_svc, music_svc, script_svc, tts_svc
+from services import (
+    article_svc,
+    audio_svc,
+    editorial_svc,
+    kb_svc,
+    links_svc,
+    lint_svc,
+    music_svc,
+    script_svc,
+    tts_svc,
+)
 from store import Store
 
 log = structlog.get_logger()
@@ -101,7 +110,6 @@ _CHAPTER_LABELS = {
 async def run_pipeline(
     episode_id: str,
     articles: list[Article],
-    style: StyleConfig,
     focus: str | None,
     voice_mapping: dict[str, str] | None,
     voice_config: dict[str, SpeakerConfig] | None,
@@ -183,8 +191,17 @@ async def run_pipeline(
             )
         metrics.summarize_time_ms = _ms_since(t0)
 
-        # 2. Script, with knowledge-base background for depth and continuity
+        # 1.5. Editorial call — the topic decides how the episode sounds.
         store.update_status(episode_id, EpisodeStatus.scripting)
+        editorial = await editorial_svc.decide(articles, focus, settings)
+        store.update_episode(episode_id, editorial=editorial)
+        narrate(
+            EpisodeStatus.scripting,
+            f"Editorial call: {editorial.topic_category}, "
+            f"{editorial.register} register — {editorial.chosen_angle}",
+        )
+
+        # 2. Script, with knowledge-base background for depth and continuity
         t0 = time.time()
         kb_context = kb_svc.gather_context(articles, store)
         if kb_context and focus:
@@ -207,7 +224,7 @@ async def run_pipeline(
             narrate(EpisodeStatus.scripting, message)
 
         script_text, token_info = await script_svc.generate_script(
-            articles, style, target_minutes, settings,
+            articles, editorial, target_minutes, settings,
             kb_context=kb_context, focus=focus,
             on_pass=on_script_pass,
         )
@@ -215,11 +232,40 @@ async def run_pipeline(
         if not title and articles:
             title = articles[0].title
         segments, chapters = script_svc.parse_script(script_text)
+
+        # 2.5. Naturalness lint — flags trigger ONE bounded revision pass.
+        lint_report = lint_svc.lint(segments, chapters, editorial)
+        if lint_report.needs_revision:
+            revise_count = sum(
+                1 for f in lint_report.flags if f.severity == "revise"
+            )
+            narrate(
+                EpisodeStatus.scripting,
+                f"Sounded a little scripted in {revise_count} spot"
+                f"{'' if revise_count == 1 else 's'} — punching it up…",
+            )
+            revised_text, revision_tokens = await script_svc.revise_script(
+                script_text, lint_report, settings,
+            )
+            token_info = {
+                "input_tokens": token_info["input_tokens"]
+                + revision_tokens["input_tokens"],
+                "output_tokens": token_info["output_tokens"]
+                + revision_tokens["output_tokens"],
+            }
+            lint_report.revised = True
+            if revised_text is not None:
+                script_text = revised_text
+                segments, chapters = script_svc.parse_script(script_text)
+                # Log-only second pass — never a second revision.
+                lint_svc.lint(segments, chapters, editorial)
+        store.update_episode(episode_id, lint=lint_report)
+
         metrics.script_time_ms = _ms_since(t0)
         metrics.script_tokens_in = token_info["input_tokens"]
         metrics.script_tokens_out = token_info["output_tokens"]
 
-        word_count = sum(len(s.text.split()) for s in segments)
+        word_count = script_svc.spoken_word_count(segments)
         episode_script = EpisodeScript(
             raw_text=script_text,
             segments=segments,
@@ -277,7 +323,7 @@ async def run_pipeline(
             )
 
         audio_chunks = await tts_svc.synthesize_script(
-            segments, voice_mapping, voice_config, style.tone.value, settings,
+            segments, voice_mapping, voice_config, settings,
             on_segment=on_segment,
         )
         metrics.tts_time_ms = _ms_since(t0)
@@ -297,12 +343,14 @@ async def run_pipeline(
         # Mix is CPU-bound (pydub/ffmpeg). Run off the event loop so status
         # polls from mobile/web keep responding during the sew.
         chapter_index_lists = [c.segment_indices for c in chapters]
+        gaps = audio_svc.derive_gaps(segments, chapters, audio_config)
         mix = await asyncio.to_thread(
             audio_svc.build_episode_audio,
             audio_chunks,
             chapter_index_lists,
             audio_config,
             intro_music,
+            gaps,
         )
         metrics.mix_time_ms = _ms_since(t0)
 

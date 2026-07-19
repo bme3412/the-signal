@@ -1,7 +1,7 @@
-import type { Tone, VoiceInfo, SpeakerConfig, VoiceSettings } from '../types';
+import type { HostInfo, VoiceInfo, SpeakerConfig, VoiceSettings } from '../types';
 
 interface Props {
-  tone: Tone;
+  hosts: Record<string, HostInfo>;
   voices: VoiceInfo[];
   voiceConfig: Record<string, SpeakerConfig>;
   onChange: (config: Record<string, SpeakerConfig>) => void;
@@ -48,30 +48,7 @@ const PACE_PRESETS: { id: string; label: string; speed: number }[] = [
   { id: 'faster', label: 'Faster', speed: 1.1 },
 ];
 
-const SPEAKER_META: Record<string, { role: string; color: string }> = {
-  ALEX: { role: 'Optimist — finds the upside', color: '#0a84ff' },
-  JAMIE: { role: 'Skeptic — needs the number', color: '#ff9500' },
-  ANCHOR: { role: 'Hosts the frame', color: '#0a84ff' },
-  ANALYST: { role: 'Brings the receipts', color: '#2d6a5f' },
-  BULL: { role: 'Bull case', color: '#34c759' },
-  BEAR: { role: 'Bear case', color: '#ff3b30' },
-  LEAD: { role: 'Walks the architecture', color: '#5b4b8a' },
-  PEER: { role: 'Pressure-tests the design', color: '#c2452d' },
-  HOST: { role: 'Narrator', color: '#0a84ff' },
-};
-
-function getSpeakersForTone(tone: Tone): string[] {
-  switch (tone) {
-    case 'casual':
-      return ['ALEX', 'JAMIE'];
-    case 'polished':
-      return ['ANCHOR', 'ANALYST'];
-    case 'debate':
-      return ['BULL', 'BEAR'];
-    case 'technical':
-      return ['LEAD', 'PEER'];
-  }
-}
+const HOST_COLORS = ['#0a84ff', '#ff9500', '#2d6a5f'];
 
 function nearestDelivery(settings: VoiceSettings): string {
   let best = DELIVERY_PRESETS[0].id;
@@ -101,8 +78,8 @@ function nearestPace(speed: number): string {
   return best;
 }
 
-export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
-  const speakers = getSpeakersForTone(tone);
+export function VoicePicker({ hosts, voices, voiceConfig, onChange }: Props) {
+  const speakers = Object.keys(hosts);
 
   const getConfig = (speaker: string): SpeakerConfig => {
     return voiceConfig[speaker] || { voice_id: '', settings: { ...defaultVoiceSettings } };
@@ -140,7 +117,7 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
     });
   };
 
-  if (voices.length === 0) {
+  if (voices.length === 0 || speakers.length === 0) {
     return (
       <div className="space-y-2">
         <h3 className="font-display text-lg font-semibold">Voices</h3>
@@ -162,9 +139,13 @@ export function VoicePicker({ tone, voices, voiceConfig, onChange }: Props) {
       </div>
 
       <div className="space-y-3">
-        {speakers.map((speaker) => {
+        {speakers.map((speaker, idx) => {
           const config = getConfig(speaker);
-          const meta = SPEAKER_META[speaker] || { role: 'Host', color: '#6b7280' };
+          const host = hosts[speaker];
+          const meta = {
+            role: host?.role ?? 'Host',
+            color: HOST_COLORS[idx % HOST_COLORS.length],
+          };
           const delivery = nearestDelivery(config.settings);
           const pace = nearestPace(config.settings.speed ?? 1);
 

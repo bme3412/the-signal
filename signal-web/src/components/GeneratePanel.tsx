@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Article, Episode, StyleConfig, SpeakerConfig, AudioProductionConfig, VoiceInfo, EpisodeStatus } from '../types';
-import { defaultStyleConfig, defaultAudioConfig } from '../types';
+import type { Article, Episode, SpeakerConfig, AudioProductionConfig, VoiceInfo, HostInfo, EpisodeStatus } from '../types';
+import { defaultAudioConfig } from '../types';
 import { StylePicker } from './StylePicker';
 import { VoicePicker } from './VoicePicker';
 import { AudioSettings } from './AudioSettings';
@@ -42,11 +42,11 @@ export function GeneratePanel({
   onFocusChange,
   onEpisodeReady,
 }: Props) {
-  const [style, setStyle] = useState<StyleConfig>(defaultStyleConfig);
   const [targetMinutes, setTargetMinutes] = useState(20);
   const [voiceConfig, setVoiceConfig] = useState<Record<string, SpeakerConfig>>({});
   const [audioConfig, setAudioConfig] = useState<AudioProductionConfig>(defaultAudioConfig);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
+  const [hosts, setHosts] = useState<Record<string, HostInfo>>({});
 
   const [generating, setGenerating] = useState(false);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
@@ -63,7 +63,10 @@ export function GeneratePanel({
 
   // Load voices
   useEffect(() => {
-    api.getVoices().then((res) => setVoices(res.voices)).catch(console.error);
+    api.getVoices().then((res) => {
+      setVoices(res.voices);
+      setHosts(res.hosts ?? {});
+    }).catch(console.error);
   }, []);
 
   // Poll for episode completion
@@ -108,7 +111,6 @@ export function GeneratePanel({
     try {
       const episode = await api.generateEpisode({
         article_ids: selectedArticles.map((a) => a.id),
-        style,
         focus: focus.trim() || undefined,
         voice_config: Object.keys(voiceConfig).length > 0 ? voiceConfig : undefined,
         audio_config: audioConfig,
@@ -346,15 +348,13 @@ export function GeneratePanel({
       </div>
 
       <StylePicker
-        style={style}
-        onChange={setStyle}
         targetMinutes={targetMinutes}
         onTargetMinutesChange={setTargetMinutes}
       />
 
       {/* Voices & production — always open, kept readable */}
       <div className="bg-(--color-surface) rounded-2xl border border-(--color-border) p-5 space-y-8">
-        <VoicePicker tone={style.tone} voices={voices} voiceConfig={voiceConfig} onChange={setVoiceConfig} />
+        <VoicePicker hosts={hosts} voices={voices} voiceConfig={voiceConfig} onChange={setVoiceConfig} />
         <div className="border-t border-(--color-border)" />
         <AudioSettings config={audioConfig} onChange={setAudioConfig} />
       </div>

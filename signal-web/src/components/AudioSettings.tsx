@@ -5,10 +5,12 @@ interface Props {
   onChange: (config: AudioProductionConfig) => void;
 }
 
+// Base gap between turns; the mixer varies it per beat (shorter after
+// reactions, longer at chapter shifts).
 const GAP_PRESETS = [
   { id: 'tight', label: 'Tight', ms: 150, hint: 'Rapid-fire' },
-  { id: 'natural', label: 'Natural', ms: 300, hint: 'Default' },
-  { id: 'spacious', label: 'Spacious', ms: 500, hint: 'Room to breathe' },
+  { id: 'natural', label: 'Natural', ms: 250, hint: 'Default' },
+  { id: 'spacious', label: 'Spacious', ms: 450, hint: 'Room to breathe' },
 ];
 
 function nearestGap(ms: number): string {
@@ -65,7 +67,7 @@ export function AudioSettings({ config, onChange }: Props) {
     onChange({ ...config, [key]: value });
   };
 
-  const gap = nearestGap(config.silence_duration_ms);
+  const gap = nearestGap(config.gap_medium_ms ?? 250);
 
   return (
     <div className="space-y-4">
@@ -86,7 +88,7 @@ export function AudioSettings({ config, onChange }: Props) {
             return (
               <button
                 key={p.id}
-                onClick={() => update('silence_duration_ms', p.ms)}
+                onClick={() => update('gap_medium_ms', p.ms)}
                 className={`px-3.5 py-2 rounded-xl border text-left transition ${
                   active
                     ? 'border-(--color-accent) bg-(--color-accent)/10'
