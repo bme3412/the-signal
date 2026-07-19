@@ -50,7 +50,6 @@ async def generate_episode(
 
     episode = Episode(
         article_ids=body.article_ids,
-        style=body.style,
         focus=body.focus,
         status=EpisodeStatus.queued,
     )
@@ -60,7 +59,6 @@ async def generate_episode(
         run_pipeline,
         episode_id=episode.id,
         articles=articles,
-        style=body.style,
         focus=body.focus,
         voice_mapping=body.voice_mapping,
         voice_config=body.voice_config,

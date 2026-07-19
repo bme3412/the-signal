@@ -5,7 +5,7 @@ import os
 
 import structlog
 
-from models import AudioProductionConfig
+from models import AudioProductionConfig, Chapter, ScriptSegment
 
 log = structlog.get_logger()
 
@@ -23,6 +23,37 @@ def _export_mp3(seg: "AudioSegment") -> bytes:
     return buf.getvalue()
 
 
+def derive_gaps(
+    segments: list[ScriptSegment],
+    chapters: list[Chapter],
+    cfg: AudioProductionConfig,
+) -> list[int]:
+    """Silence (ms) BEFORE each segment, from conversational beats.
+
+    Short after interruptions and reactions, slightly longer after a
+    question (a beat to think), medium otherwise. First segment of each
+    chapter gets 0 — the chapter join supplies gap_chapter_ms.
+    """
+    medium = cfg.effective_medium_ms()
+    gaps = [medium] * len(segments)
+    for ch in chapters:
+        for j, idx in enumerate(ch.segment_indices):
+            if j == 0:
+                gaps[idx] = 0
+                continue
+            seg = segments[idx]
+            prev = segments[ch.segment_indices[j - 1]]
+            if seg.delivery in ("interrupting", "reaction"):
+                gaps[idx] = cfg.gap_short_ms
+            elif prev.delivery == "question":
+                gaps[idx] = cfg.gap_short_ms + 50
+            elif seg.delivery == "transition":
+                gaps[idx] = medium + 150
+            else:
+                gaps[idx] = medium
+    return gaps
+
+
 def _intro_bed(music: bytes, speech_lead_ms: int = 2500) -> "AudioSegment":
     """Turn a music clip into an intro bed: it plays, then fades out over its
     tail so speech can duck in on top. Returns the faded music segment."""
@@ -37,8 +68,12 @@ def build_episode_audio(
     chapter_indices: list[list[int]],
     config: AudioProductionConfig | None = None,
     intro_music: bytes | None = None,
+    gaps: list[int] | None = None,
 ) -> dict:
     """Mix TTS chunks into per-chapter audio plus the full episode.
+
+    ``gaps`` is per-segment leading silence in ms (from derive_gaps); when
+    omitted, every intra-chapter join falls back to the medium gap.
 
     Returns {
         "episode": bytes,
@@ -54,7 +89,7 @@ def build_episode_audio(
         raise RuntimeError("pydub/ffmpeg required for audio mixing")
 
     cfg = config or AudioProductionConfig()
-    silence = AudioSegment.silent(duration=cfg.silence_duration_ms)
+    chapter_silence = AudioSegment.silent(duration=cfg.gap_chapter_ms)
 
     decoded = []
     for raw in chunks:
@@ -70,7 +105,9 @@ def build_episode_audio(
         combined = AudioSegment.empty()
         for j, idx in enumerate(indices):
             if j > 0:
-                combined += silence
+                gap_ms = gaps[idx] if gaps else cfg.effective_medium_ms()
+                if gap_ms > 0:
+                    combined += AudioSegment.silent(duration=gap_ms)
             combined += decoded[idx]
         chapter_audio.append(combined)
 
@@ -91,7 +128,7 @@ def build_episode_audio(
     episode = AudioSegment.empty()
     for i, ch in enumerate(chapter_audio):
         if i > 0:
-            episode += silence
+            episode += chapter_silence
         episode += ch
 
     # Apply the same gain to episode and chapters so adaptive playback
@@ -106,7 +143,9 @@ def build_episode_audio(
     cursor = 0.0
     for i, ch in enumerate(chapter_audio):
         if i > 0:
-            cursor += cfg.silence_duration_ms / 1000
+            # Must mirror the chapter join above or the manifest's
+            # start_seconds drift from the real episode positions.
+            cursor += cfg.gap_chapter_ms / 1000
         chapters.append({
             "audio": _export_mp3(ch),
             "duration_seconds": round(ch.duration_seconds, 2),

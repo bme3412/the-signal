@@ -9,12 +9,19 @@ import structlog
 from anthropic import AsyncAnthropic
 
 from config import Settings
-from models import Article, Chapter, ChapterRole, ScriptSegment, StyleConfig
+from models import (
+    Article,
+    Chapter,
+    ChapterRole,
+    EditorialDecision,
+    LintReport,
+    ScriptSegment,
+)
 from prompts import (
+    DELIVERY_TAGS,
     build_banter_prompt,
     build_outline_prompt,
-    build_system_prompt,
-    is_dialogue_tone,
+    build_revision_prompt,
 )
 
 log = structlog.get_logger()
@@ -34,13 +41,6 @@ _BANTER_PULSES = [
     "Making the callbacks land…",
     "Still writing banter — worth the wait…",
 ]
-
-_MONO_PULSES = [
-    "Finding the through-line…",
-    "Tightening the closer…",
-    "Still writing — hang tight…",
-]
-
 
 async def _await_with_pulse(
     awaitable: Awaitable[_T],
@@ -76,6 +76,19 @@ _TITLE_RE = re.compile(
 _DELIVERY_RE = re.compile(
     r"\s*\|\s*delivery:\s*([a-zA-Z][\w-]*)\s*$", re.IGNORECASE
 )
+# Inline v3 audio tags like [laughs] — lowercase-only, so they can never
+# collide with [MAYA]:-style speaker tags (uppercase + colon).
+_AUDIO_TAG_RE = re.compile(r"\[[a-z][a-z ]*\]\s*")
+
+
+def strip_audio_tags(text: str) -> str:
+    """Spoken text without inline audio tags — for word counts and v2 TTS."""
+    return _AUDIO_TAG_RE.sub("", text).strip()
+
+
+def spoken_word_count(segments: list[ScriptSegment]) -> int:
+    """Word count of what's actually spoken (audio tags excluded)."""
+    return sum(len(strip_audio_tags(s.text).split()) for s in segments)
 
 
 def extract_title(text: str) -> tuple[str | None, str]:
@@ -93,12 +106,19 @@ def extract_title(text: str) -> tuple[str | None, str]:
 
 
 def _split_delivery(line: str) -> tuple[str, str | None]:
-    """Strip a trailing `| delivery: tag` from spoken text."""
+    """Strip a trailing `| delivery: tag` from spoken text.
+
+    Unknown tags soft-coerce to "neutral" — a creative label from the model
+    must never leak into gap timing or lint rules.
+    """
     m = _DELIVERY_RE.search(line)
     if not m:
         return line.strip(), None
     text = line[: m.start()].strip()
-    return text, m.group(1).lower()
+    tag = m.group(1).lower()
+    if tag not in DELIVERY_TAGS:
+        tag = "neutral"
+    return text, tag
 
 
 def _article_user_message(
@@ -154,14 +174,14 @@ def _sum_tokens(*infos: dict) -> dict:
 
 async def generate_outline(
     articles: list[Article],
-    style: StyleConfig,
+    editorial: EditorialDecision,
     target_minutes: int,
     settings: Settings,
     kb_context: str | None = None,
     focus: str | None = None,
 ) -> tuple[str, dict]:
     target_words = target_minutes * 150
-    system = build_outline_prompt(style, target_words=target_words)
+    system = build_outline_prompt(editorial, target_words=target_words)
     user_msg = _article_user_message(
         articles, focus, kb_context,
         lead="Build a content-only outline covering these articles:",
@@ -178,15 +198,20 @@ async def generate_outline(
 
 async def dramatize_outline(
     outline: str,
-    style: StyleConfig,
+    editorial: EditorialDecision,
     target_minutes: int,
     settings: Settings,
 ) -> tuple[str, dict]:
     target_words = target_minutes * 150
-    system = build_banter_prompt(style, target_words=target_words)
+    # Inline audio tags only when the TTS model can render them — a v2
+    # fallback must never read "[laughs]" aloud.
+    use_audio_tags = settings.elevenlabs_model.startswith("eleven_v3")
+    system = build_banter_prompt(
+        editorial, target_words=target_words, use_audio_tags=use_audio_tags
+    )
     user_msg = (
-        "Dramatize this outline into banter. Preserve TITLE and CHAPTER "
-        "markers. Tag every line with | delivery: <tag>.\n\n"
+        "Turn this outline into the conversation transcript. Preserve TITLE "
+        "and CHAPTER markers. Tag every line with | delivery: <tag>.\n\n"
         f"{outline}"
     )
     script_text, token_info = await _claude_text(system, user_msg, settings)
@@ -199,88 +224,98 @@ async def dramatize_outline(
     return script_text, token_info
 
 
-async def generate_script_monologue(
-    articles: list[Article],
-    style: StyleConfig,
-    target_minutes: int,
-    settings: Settings,
-    kb_context: str | None = None,
-    focus: str | None = None,
-) -> tuple[str, dict]:
-    target_words = target_minutes * 150
-    system = build_system_prompt(style, target_words=target_words)
-    user_msg = _article_user_message(
-        articles, focus, kb_context,
-        lead="Write a podcast script covering these articles:",
-    )
-    script_text, token_info = await _claude_text(system, user_msg, settings)
-    log.info(
-        "script.generated",
-        words=len(script_text.split()),
-        input_tokens=token_info["input_tokens"],
-        output_tokens=token_info["output_tokens"],
-        mode="monologue",
-    )
-    return script_text, token_info
-
-
 async def generate_script(
     articles: list[Article],
-    style: StyleConfig,
+    editorial: EditorialDecision,
     target_minutes: int,
     settings: Settings,
     kb_context: str | None = None,
     focus: str | None = None,
     on_pass: Callable[[str], None] | None = None,
 ) -> tuple[str, dict]:
-    """Generate a full script.
+    """Generate a full script via outline → dramatize (two passes).
 
-    Dialogue tones use outline → dramatize (two passes). Monologue tones
-    stay single-pass. ``on_pass`` is an optional callback ``(label: str)``
-    for pipeline narration between passes.
+    ``on_pass`` is an optional callback ``(label: str)`` for pipeline
+    narration between passes.
     """
-    if is_dialogue_tone(style.tone.value):
-        if on_pass:
-            on_pass(
-                "Sketching the bones first — the facts, the order, the beats…"
-            )
-        outline, t1 = await _await_with_pulse(
-            generate_outline(
-                articles, style, target_minutes, settings,
-                kb_context=kb_context, focus=focus,
-            ),
-            on_pass,
-            _OUTLINE_PULSES,
-        )
-        if on_pass:
-            on_pass(
-                "Now the fun part — turning that outline into real host banter…"
-            )
-        script_text, t2 = await _await_with_pulse(
-            dramatize_outline(outline, style, target_minutes, settings),
-            on_pass,
-            _BANTER_PULSES,
-        )
-        token_info = _sum_tokens(t1, t2)
-        log.info(
-            "script.generated",
-            words=len(script_text.split()),
-            input_tokens=token_info["input_tokens"],
-            output_tokens=token_info["output_tokens"],
-            mode="outline_dramatize",
-        )
-        return script_text, token_info
-
     if on_pass:
-        on_pass("Writing it like a show, not a memo…")
-    return await _await_with_pulse(
-        generate_script_monologue(
-            articles, style, target_minutes, settings,
+        on_pass(
+            "Sketching the bones first — the facts, the order, the beats…"
+        )
+    outline, t1 = await _await_with_pulse(
+        generate_outline(
+            articles, editorial, target_minutes, settings,
             kb_context=kb_context, focus=focus,
         ),
         on_pass,
-        _MONO_PULSES,
+        _OUTLINE_PULSES,
     )
+    if on_pass:
+        on_pass(
+            "Now the fun part — turning that outline into real host banter…"
+        )
+    script_text, t2 = await _await_with_pulse(
+        dramatize_outline(outline, editorial, target_minutes, settings),
+        on_pass,
+        _BANTER_PULSES,
+    )
+    token_info = _sum_tokens(t1, t2)
+    log.info(
+        "script.generated",
+        words=len(script_text.split()),
+        input_tokens=token_info["input_tokens"],
+        output_tokens=token_info["output_tokens"],
+        mode="outline_dramatize",
+    )
+    return script_text, token_info
+
+
+async def revise_script(
+    script_text: str,
+    report: LintReport,
+    settings: Settings,
+) -> tuple[str | None, dict]:
+    """One bounded revision pass fixing the lint's 'revise' flags.
+
+    Returns (revised_text, token_info); revised_text is None when the
+    rewrite failed or came back structurally broken — callers keep the
+    original in that case. Never raises.
+    """
+    details = [f.detail for f in report.flags if f.severity == "revise"]
+    if not details:
+        return None, {"input_tokens": 0, "output_tokens": 0}
+
+    try:
+        revised, token_info = await _claude_text(
+            build_revision_prompt(details),
+            f"Fix the flagged problems in this script:\n\n{script_text}",
+            settings,
+        )
+    except Exception as exc:
+        log.warning("script.revision_failed", error=str(exc))
+        return None, {"input_tokens": 0, "output_tokens": 0}
+
+    # Sanity: the revision must still parse into a comparable script.
+    orig_segments, orig_chapters = parse_script(script_text)
+    new_segments, new_chapters = parse_script(revised)
+    if (
+        len(new_segments) < len(orig_segments) * 0.5
+        or len(new_chapters) != len(orig_chapters)
+    ):
+        log.warning(
+            "script.revision_rejected",
+            orig_segments=len(orig_segments),
+            new_segments=len(new_segments),
+            orig_chapters=len(orig_chapters),
+            new_chapters=len(new_chapters),
+        )
+        return None, token_info
+    log.info(
+        "script.revised",
+        fixed_flags=len(details),
+        output_tokens=token_info["output_tokens"],
+    )
+    return revised, token_info
 
 
 def parse_script(text: str) -> tuple[list[ScriptSegment], list[Chapter]]:

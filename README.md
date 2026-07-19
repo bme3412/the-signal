@@ -128,34 +128,45 @@ back, faster and playback tightens so the closer lands as you arrive.
 Requires `NSLocationWhenInUseUsageDescription` in the app target's Info
 settings.
 
-### Customizable Style
-8 independent dimensions to shape your podcast:
+### Topic-Aware Editorial (no style knobs)
+There are no user-facing style dimensions. After enrichment, an editorial
+classifier reads the articles and decides how the episode should sound —
+`{topic_category, register, chosen_angle, framing_note, rationale}` — stored
+on the episode for inspection. Specialist framing only happens when the story
+demands it (an earnings report can get investor vocabulary; a World Cup final
+never will). Steer the angle with the free-text **Direction** field.
 
-- **Depth**: Briefing / Deep Dive / Synthesis
-- **Tone**: Casual / Polished / Debate / Technical
-- **Lens**: Investor / Engineer / Macro / General
-- **Pacing**: Rapid / Measured / Variable
-- **Humor**: Serious / Dry / Playful / Roast
-- **Audience**: Insider / Informed / Curious
-- **Structure**: Narrative / Ranked / Thematic / Contrarian
-- **Closer**: Actionable / Philosophical / Prediction / Question
+### Persistent Hosts
+Every episode is the same two people: **Maya** (ex-wire-service journalist,
+the explainer who lands the numbers) and **Dev** (ex-engineer generalist, the
+skeptic who asks what the listener is thinking). Personas live in
+`signal-backend/personas.py` with their own voices and voice settings; the
+topic changes how they talk, never who they are.
+
+### Naturalness Pipeline
+Scripts are written as conversation transcripts (varied turn lengths, genuine
+questions, light disagreement, interruptions, callbacks), then checked by a
+rules-based lint — uniform turns, missing reactions, register mismatches
+(financial jargon in a non-financial episode), unspeakable tokens like
+"2.8T", stock phrases — which triggers at most one revision pass.
 
 ### Sound & Music
-Voices use warm podcast-tuned defaults (lower stability for emotional range,
-adjustable pace 0.7-1.2x). Toggle **Intro Theme Music** in audio production to
-open each episode with a short sting that fades under the first line — it's
-generated once via the ElevenLabs Music API and cached, or drop your own at
-`signal-backend/data/theme.mp3`. The script is now written for spoken delivery
-(flowing sentences, not headline fragments) to avoid the robotic read.
+TTS uses **ElevenLabs v3** with inline audio tags (`[laughs]`, `[sighs]`,
+`[curious]`) written by the script model and rendered as real delivery, with
+per-host voice settings. Gaps between turns are variable — short after
+reactions and interruptions, longer at chapter shifts — instead of a fixed
+silence. Set `ELEVENLABS_MODEL=eleven_multilingual_v2` to roll back to v2
+(audio tags are stripped automatically). Toggle **Intro Theme Music** to open
+each episode with a short sting that fades under the first line — generated
+once via the ElevenLabs Music API and cached, or drop your own at
+`signal-backend/data/theme.mp3`.
 
 ### Voice Selection
-9 ElevenLabs voices with per-speaker settings:
-- Stability (consistency)
-- Clarity (similarity boost)
-- Style (expressiveness)
+9 ElevenLabs voices with per-host settings (stability, clarity, style), and
+per-host overrides via `voice_config`.
 
 ### Audio Production
-- Configurable gaps between segments
+- Variable conversational gaps (tight / natural / spacious base)
 - Fade in/out transitions
 - Volume normalization
 
@@ -169,8 +180,7 @@ sequenceDiagram
     participant Claude
     participant ElevenLabs
 
-    User->>App: Add articles
-    User->>App: Configure style
+    User->>App: Add articles (+ optional direction)
     User->>App: Generate
 
     App->>API: POST /episodes/generate
@@ -178,13 +188,18 @@ sequenceDiagram
     API->>Claude: Summarize articles
     Claude-->>API: Summaries
 
-    API->>Claude: Write podcast script
-    Claude-->>API: Script with speaker tags
+    API->>Claude: Editorial call (topic, register, angle)
+    Claude-->>API: {topic_category, register, chosen_angle}
 
-    API->>ElevenLabs: Synthesize each segment
+    API->>Claude: Outline, then conversation transcript
+    Claude-->>API: Script with host tags + audio tags
+
+    API->>API: Naturalness lint (one revision pass if flagged)
+
+    API->>ElevenLabs: Synthesize each turn (eleven_v3)
     ElevenLabs-->>API: Audio chunks
 
-    API->>API: Mix, fade, normalize
+    API->>API: Mix with variable gaps, fade, normalize
     API-->>App: Episode ready
 
     User->>App: Play episode

@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     # Leave empty for local development.
     signal_api_token: str = ""
     claude_model: str = "claude-opus-4-8"
-    elevenlabs_model: str = "eleven_multilingual_v2"
+    # eleven_v3 renders inline audio tags ([laughs], [sighs]…) as real
+    # delivery. Set ELEVENLABS_MODEL=eleven_multilingual_v2 to roll back —
+    # the pipeline then strips tags and skips v3-only settings.
+    elevenlabs_model: str = "eleven_v3"
     storage_path: str = "./data"
 
     # Repo-root .env is read first so secrets can live in one place;

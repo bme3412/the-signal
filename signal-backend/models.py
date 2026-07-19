@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import warnings
 from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+
+# --------------- LEGACY wire-compat ---------------
+# TODO(ios-compat): the iOS client decodes Episode.style as a non-optional
+# StyleConfig with these exact enum values. Style no longer influences
+# generation — the editorial classifier (EditorialDecision) decides framing
+# from the content. Delete this whole block once iOS ships without StyleConfig.
 
 class Depth(str, Enum):
     briefing = "briefing"
@@ -70,8 +77,6 @@ class EpisodeStatus(str, Enum):
     failed = "failed"
 
 
-# --------------- Style ---------------
-
 class StyleConfig(BaseModel):
     depth: Depth = Depth.briefing
     tone: Tone = Tone.casual
@@ -81,6 +86,63 @@ class StyleConfig(BaseModel):
     audience: Audience = Audience.informed
     structure: Structure = Structure.ranked
     closer: Closer = Closer.actionable
+
+# --------------- end LEGACY wire-compat ---------------
+
+
+# --------------- Editorial ---------------
+
+TOPIC_CATEGORIES = (
+    "finance_markets",
+    "tech",
+    "science",
+    "sports",
+    "politics_policy",
+    "culture",
+    "health",
+    "general",
+)
+
+REGISTERS = ("conversational", "analytical", "playful", "solemn")
+
+
+# "register" shadows an internal (non-field) BaseModel function; the field
+# behaves normally, so silence pydantic's shadow warning for this class.
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", message='Field name "register"')
+
+    class EditorialDecision(BaseModel):
+        """How this episode should sound — derived from content, not config.
+
+        Produced by the editorial classifier after enrichment, stored on the
+        episode so the call is inspectable and loggable.
+        """
+
+        topic_category: str = "general"
+        register: str = "conversational"
+        chosen_angle: str = ""  # one-sentence editorial spine of the episode
+        # Special vocabulary ONLY when the story demands it (e.g. an earnings
+        # report warrants investor terms). None = neutral, plain-terms framing.
+        framing_note: str | None = None
+        rationale: str = ""
+
+
+# --------------- Naturalness lint ---------------
+
+class LintFlag(BaseModel):
+    rule: str
+    severity: str = "warn"  # warn | revise (revise triggers one rewrite pass)
+    detail: str
+    segment_index: int | None = None
+
+
+class LintReport(BaseModel):
+    flags: list[LintFlag] = Field(default_factory=list)
+    revised: bool = False  # a revision pass ran (regardless of outcome)
+
+    @property
+    def needs_revision(self) -> bool:
+        return any(f.severity == "revise" for f in self.flags)
 
 
 # --------------- Voice Settings ---------------
@@ -110,14 +172,33 @@ class SpeakerConfig(BaseModel):
 # --------------- Audio Production ---------------
 
 class AudioProductionConfig(BaseModel):
-    """Audio mixing settings."""
+    """Audio mixing settings.
 
+    Inter-turn silence is variable: short after reactions/interruptions,
+    medium by default, long at chapter boundaries — fixed gaps are one of
+    the strongest robotic tells.
+    """
+
+    # DEPRECATED: old clients' single fixed gap. If a client explicitly sends
+    # a value, it becomes the medium gap (see effective_medium_ms).
     silence_duration_ms: int = Field(300, ge=100, le=1000)
+    gap_short_ms: int = Field(120, ge=0, le=1000)
+    gap_medium_ms: int = Field(250, ge=50, le=1000)
+    gap_chapter_ms: int = Field(600, ge=100, le=2000)
     fade_in_ms: int = Field(0, ge=0, le=500)
     fade_out_ms: int = Field(0, ge=0, le=500)
     normalize: bool = False
     target_dbfs: float = Field(-16.0, ge=-30.0, le=-6.0)
     intro_music: bool = False  # prepend a music theme sting to the episode
+
+    def effective_medium_ms(self) -> int:
+        """Honor a legacy client's explicit silence_duration_ms."""
+        if (
+            "silence_duration_ms" in self.model_fields_set
+            and "gap_medium_ms" not in self.model_fields_set
+        ):
+            return self.silence_duration_ms
+        return self.gap_medium_ms
 
 
 # --------------- Article ---------------
@@ -249,7 +330,10 @@ class Episode(BaseModel):
     focus: str | None = None  # editorial direction the script was steered by
     status: EpisodeStatus = EpisodeStatus.queued
     progress: list[ProgressEvent] = Field(default_factory=list)
+    # LEGACY shim — see StyleConfig block. Always the defaults; ignored.
     style: StyleConfig = Field(default_factory=StyleConfig)
+    editorial: EditorialDecision | None = None
+    lint: LintReport | None = None
     article_ids: list[str] = Field(default_factory=list)
     script: EpisodeScript | None = None
     links: list[EpisodeLink] = Field(default_factory=list)
@@ -284,8 +368,8 @@ class EpisodeManifest(BaseModel):
 
 
 class EpisodeRequest(BaseModel):
+    # Old clients may still send a "style" object — pydantic ignores extras.
     article_ids: list[str] = Field(..., min_length=1, max_length=10)
-    style: StyleConfig = Field(default_factory=StyleConfig)
     focus: str | None = Field(None, max_length=300)
     voice_mapping: dict[str, str] | None = None  # Legacy: simple voice ID mapping
     voice_config: dict[str, SpeakerConfig] | None = None  # New: full voice configuration
